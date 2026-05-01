@@ -2465,7 +2465,9 @@ bool LoopVectorizationCostModel::isScalarWithPredication(Instruction *I,
     return getCallWideningDecision(cast<CallInst>(I), VF).Kind == CM_Scalarize;
   case Instruction::Load:
   case Instruction::Store: {
-    return !Config.isLegalMaskedLoadOrStore(I, VF) &&
+    bool IsConsecutive = Legal->isConsecutivePtr(getLoadStoreType(I),
+                                                 getLoadStorePointerOperand(I));
+    return !(IsConsecutive && Config.isLegalMaskedLoadOrStore(I, VF)) &&
            !Config.isLegalGatherOrScatter(I, VF);
   }
   case Instruction::UDiv:
@@ -2689,11 +2691,7 @@ bool LoopVectorizationCostModel::interleavedAccessCanBeWidened(
   if (VF.isScalable() && NeedsMaskForGaps)
     return false;
 
-  auto *Ty = getLoadStoreType(I);
-  const Align Alignment = getLoadStoreAlignment(I);
-  unsigned AS = getLoadStoreAddressSpace(I);
-  return isa<LoadInst>(I) ? TTI.isLegalMaskedLoad(Ty, Alignment, AS)
-                          : TTI.isLegalMaskedStore(Ty, Alignment, AS);
+  return Config.isLegalMaskedLoadOrStore(I, VF);
 }
 
 bool LoopVectorizationCostModel::memoryInstructionCanBeWidened(
