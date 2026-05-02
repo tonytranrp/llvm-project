@@ -1813,7 +1813,16 @@ static void writeConstantInternal(raw_ostream &Out, const Constant *CV,
     return;
   }
 
-  if (isa<ConstantPointerNull>(CV)) {
+  if (const auto *CPN = dyn_cast<ConstantPointerNull>(CV)) {
+    if (CPN->getType()->isVectorTy()) {
+      Out << "splat (";
+      writeAsOperandInternal(Out,
+                             ConstantPointerNull::get(CPN->getPointerType()),
+                             WriterCtx, /*PrintType=*/true);
+      Out << ')';
+      return;
+    }
+
     Out << "null";
     return;
   }
