@@ -1363,6 +1363,10 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
     InitBuiltinType(OMPArrayShapingTy, BuiltinType::OMPArrayShaping);
     InitBuiltinType(OMPIteratorTy, BuiltinType::OMPIterator);
   }
+  // std::meta::info placeholder type for C++26 Reflection (P2996).
+  if (LangOpts.Reflection) {
+    InitBuiltinType(MetaInfoTy, BuiltinType::MetaInfo);
+  }
   // Placeholder type for OpenACC array sections, if we are ALSO in OMP mode,
   // don't bother, as we're just using the same type as OMP.
   if (LangOpts.OpenACC && !LangOpts.OpenMP) {

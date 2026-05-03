@@ -1943,14 +1943,23 @@ CXXReflectExpr::CXXReflectExpr(EmptyShell Empty)
     : Expr(CXXReflectExprClass, Empty) {}
 
 CXXReflectExpr::CXXReflectExpr(SourceLocation CaretCaretLoc,
-                               const TypeSourceInfo *TSI)
-    : Expr(CXXReflectExprClass, TSI->getType(), VK_PRValue, OK_Ordinary),
-      CaretCaretLoc(CaretCaretLoc), Operand(TSI) {}
+                               SourceLocation OperandLoc,
+                               operand_type Operand, ReflectionKind Kind,
+                               QualType ResultTy, ExprValueKind VK)
+    : Expr(CXXReflectExprClass, ResultTy, VK, OK_Ordinary),
+      CaretCaretLoc(CaretCaretLoc), OperandLoc(OperandLoc),
+      Operand(Operand), Kind(Kind) {}
 
 CXXReflectExpr *CXXReflectExpr::Create(ASTContext &C,
-                                       SourceLocation CaretCaretLoc,
-                                       TypeSourceInfo *TSI) {
-  return new (C) CXXReflectExpr(CaretCaretLoc, TSI);
+                                       SourceLocation OperatorLoc,
+                                       SourceLocation OperandLoc,
+                                       operand_type Operand,
+                                       ReflectionKind Kind) {
+  // Result type is std::meta::info — the opaque reflection value type.
+  // Falls back to IntTy if -freflection wasn't enabled (shouldn't happen).
+  QualType ResultTy = C.MetaInfoTy.isNull() ? C.IntTy : (QualType)C.MetaInfoTy;
+  return new (C) CXXReflectExpr(OperatorLoc, OperandLoc, Operand, Kind,
+                                ResultTy, VK_PRValue);
 }
 
 CXXReflectExpr *CXXReflectExpr::CreateEmpty(ASTContext &C) {

@@ -40,6 +40,12 @@
 #ifndef MODULES_KEYWORD
 #define MODULES_KEYWORD(X) KEYWORD(X,KEYMODULES)
 #endif
+#ifndef PATTERN_MATCHING_KEYWORD
+#define PATTERN_MATCHING_KEYWORD(X) KEYWORD(X,KEYPATTERNMATCHING)
+#endif
+#ifndef CONTRACTS_KEYWORD
+#define CONTRACTS_KEYWORD(X) KEYWORD(X,KEYCONTRACTS)
+#endif
 #ifndef TYPE_TRAIT
 #define TYPE_TRAIT(N,I,K) KEYWORD(I,K)
 #endif
@@ -240,6 +246,7 @@ PUNCTUATOR(greatergreaterequal, ">>=")
 PUNCTUATOR(caret,               "^")
 PUNCTUATOR(caretcaret,          "^^")
 PUNCTUATOR(caretequal,          "^=")
+PUNCTUATOR(equalgreater,        "=>")
 PUNCTUATOR(pipe,                "|")
 PUNCTUATOR(pipepipe,            "||")
 PUNCTUATOR(pipeequal,           "|=")
@@ -432,6 +439,15 @@ CXX11_KEYWORD(thread_local          , KEYC23)
 COROUTINES_KEYWORD(co_await)
 COROUTINES_KEYWORD(co_return)
 COROUTINES_KEYWORD(co_yield)
+
+// Pattern matching extension keywords
+PATTERN_MATCHING_KEYWORD(match)
+
+// Contracts extension keywords
+CONTRACTS_KEYWORD(contract_assert)
+// Note: 'pre' and 'post' are handled as contextual keywords in function
+// declarator parsing, not as global keywords, to avoid conflicts with
+// existing identifiers named 'pre' or 'post'.
 
 // C++20 keywords
 MODULES_KEYWORD(module)

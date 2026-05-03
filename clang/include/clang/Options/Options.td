@@ -3946,6 +3946,16 @@ defm reflection : BoolFOption<"reflection",
   PosFlag<SetTrue, [], [CC1Option],
           "Enable C++26 reflection">,
   NegFlag<SetFalse>>, ShouldParseIf<cplusplus.KeyPath>;
+defm pattern_matching : BoolFOption<"pattern-matching",
+  LangOpts<"PatternMatching">, DefaultFalse,
+  PosFlag<SetTrue, [], [CC1Option],
+          "Enable C++ pattern matching extension">,
+  NegFlag<SetFalse>>, ShouldParseIf<cplusplus.KeyPath>;
+defm contracts : BoolFOption<"contracts",
+  LangOpts<"Contracts">, DefaultFalse,
+  PosFlag<SetTrue, [], [CC1Option],
+          "Enable C++26 contracts">,
+  NegFlag<SetFalse>>, ShouldParseIf<cplusplus.KeyPath>;
 defm sized_deallocation : BoolFOption<"sized-deallocation",
   LangOpts<"SizedDeallocation">, Default<cpp14.KeyPath>,
   PosFlag<SetTrue, [], [], "Enable C++14 sized global deallocation functions">,

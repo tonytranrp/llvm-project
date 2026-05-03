@@ -3634,6 +3634,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "<OpenMP array shaping type>";
   case OMPIterator:
     return "<OpenMP iterator type>";
+  case MetaInfo:
+    return "std::meta::info";
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext)                                      \
   case Id:                                                                     \
     return #ExtType;
@@ -5255,6 +5257,7 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::ArraySection:
     case BuiltinType::OMPArrayShaping:
     case BuiltinType::OMPIterator:
+    case BuiltinType::MetaInfo:
       return false;
     }
     llvm_unreachable("unknown builtin type");

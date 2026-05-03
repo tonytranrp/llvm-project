@@ -529,6 +529,8 @@ LANGOPT(EnableLifetimeSafetyTUAnalysis, 1, 0, NotCompatible, "Lifetime safety at
 
 LANGOPT(PreserveVec3Type, 1, 0, NotCompatible, "Preserve 3-component vector type")
 LANGOPT(Reflection      , 1, 0, NotCompatible, "C++26 Reflection")
+LANGOPT(PatternMatching , 1, 0, NotCompatible, "C++ Pattern Matching")
+LANGOPT(Contracts       , 1, 0, NotCompatible, "C++26 Contracts")
 
 #undef LANGOPT
 #undef ENUM_LANGOPT

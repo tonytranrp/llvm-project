@@ -331,8 +331,12 @@ PLACEHOLDER_TYPE(OMPArrayShaping, OMPArrayShapingTy)
 // A placeholder type for OpenMP iterators.
 PLACEHOLDER_TYPE(OMPIterator, OMPIteratorTy)
 
+// \c std::meta::info — the type of a reflection value (P2996).
+// Enabled only when -freflection is active.
+PLACEHOLDER_TYPE(MetaInfo, MetaInfoTy)
+
 #ifdef LAST_BUILTIN_TYPE
-LAST_BUILTIN_TYPE(OMPIterator)
+LAST_BUILTIN_TYPE(MetaInfo)
 #undef LAST_BUILTIN_TYPE
 #endif
 

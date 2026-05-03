@@ -167,6 +167,12 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
     return LangOpts.FixedPoint ? KS_Enabled : KS_Disabled;
   case KEYDEFERTS:
     return LangOpts.DeferTS ? KS_Enabled : KS_Disabled;
+  case KEYPATTERNMATCHING: // Same as KEYCONTRACTS / KEYEXTENSION
+    // Shared bit for pattern matching and contracts extension keywords.
+    // Enabled if either feature is turned on.
+    if (LangOpts.PatternMatching || LangOpts.Contracts)
+      return KS_Enabled;
+    return KS_Unknown;
   default:
     llvm_unreachable("Unknown KeywordStatus flag");
   }

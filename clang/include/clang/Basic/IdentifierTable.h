@@ -79,6 +79,11 @@ enum TokenKey : unsigned {
   KEYFIXEDPOINT = 0x10000000,
   KEYDEFERTS = 0x20000000,
   KEYNOHLSL = 0x40000000,
+  // Shared bit for extension keywords: pattern matching (match) and
+  // contracts (contract_assert). They never apply to the same keyword.
+  KEYEXTENSION = 0x80000000,
+  KEYPATTERNMATCHING = KEYEXTENSION,
+  KEYCONTRACTS = KEYEXTENSION,
   KEYMAX = KEYNOHLSL, // The maximum key
   KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
   KEYALL = (KEYMAX | (KEYMAX - 1)) & ~KEYNOMS18 & ~KEYNOOPENCL & ~KEYNOZOS &

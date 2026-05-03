@@ -1347,6 +1347,9 @@ public:
   CanQualType IncompleteMatrixIdxTy;
   CanQualType ArraySectionTy;
   CanQualType OMPArrayShapingTy, OMPIteratorTy;
+
+  /// std::meta::info type for C++26 Reflection (P2996).
+  CanQualType MetaInfoTy;
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   CanQualType Id##Ty;
 #include "clang/Basic/OpenCLExtensionTypes.def"

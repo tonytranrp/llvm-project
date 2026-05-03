@@ -184,6 +184,10 @@ def RequiresExpr : StmtNode<Expr>;
 // c++ 26 reflection
 def CXXReflectExpr : StmtNode<Expr>;
 
+// Pattern matching and contracts extensions are implemented as builtins
+// and lowered AST nodes for the initial MVP. Dedicated StmtNode entries
+// will be added once the full infrastructure is in place.
+
 // Obj-C Expressions.
 def ObjCObjectLiteral : StmtNode<Expr, 1>;
 def ObjCStringLiteral : StmtNode<ObjCObjectLiteral>;

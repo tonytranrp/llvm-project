@@ -14938,9 +14938,33 @@ public:
 
 public:
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, TypeSourceInfo *TSI);
+  ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, SourceLocation OperandLoc,
+                                 ValueDecl *D);
+  ExprResult ActOnCXXReflectGlobalNamespace(SourceLocation OpLoc,
+                                             SourceLocation ColonColonLoc);
 
   ExprResult BuildCXXReflectExpr(SourceLocation OperatorLoc,
-                                 TypeSourceInfo *TSI);
+                                 SourceLocation OperandLoc,
+                                 CXXReflectExpr::operand_type Operand,
+                                 CXXReflectExpr::ReflectionKind Kind);
+
+  // Pattern matching Sema actions
+  ExprResult ActOnMatchExpr(SourceLocation MatchLoc, SourceLocation RParenLoc,
+                            SourceLocation LBraceLoc, SourceLocation RBraceLoc,
+                            Expr *Scrutinee,
+                            SmallVectorImpl<ExprResult> &Patterns,
+                            SmallVectorImpl<SourceLocation> &ArrowLocs,
+                            SmallVectorImpl<ExprResult> &Results);
+  ExprResult ActOnWildcardPattern(SourceLocation UnderscoreLoc);
+  ExprResult ActOnIdentifierPattern(SourceLocation IdLoc, IdentifierInfo *II);
+
+  // Contracts Sema actions
+  StmtResult ActOnContractAssertStmt(SourceLocation Loc, Expr *Condition,
+                                     StringLiteral *Message = nullptr);
+  void ActOnFunctionContractPre(SourceLocation Loc, Expr *Condition,
+                                StringLiteral *Message = nullptr);
+  void ActOnFunctionContractPost(SourceLocation Loc, Expr *Condition,
+                                 StringLiteral *Message = nullptr);
 
 public:
   void PushSatisfactionStackEntry(const NamedDecl *D,

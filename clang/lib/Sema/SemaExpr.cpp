@@ -6461,7 +6461,8 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
   case BuiltinType::ArraySection:
   case BuiltinType::OMPArrayShaping:
   case BuiltinType::OMPIterator:
-    return true;
+  case BuiltinType::MetaInfo:
+    return false;
 
   }
   llvm_unreachable("bad builtin type kind");
@@ -18185,12 +18186,29 @@ void Sema::PushExpressionEvaluationContextForFunction(
 
 ExprResult Sema::ActOnCXXReflectExpr(SourceLocation CaretCaretLoc,
                                      TypeSourceInfo *TSI) {
-  return BuildCXXReflectExpr(CaretCaretLoc, TSI);
+  return BuildCXXReflectExpr(CaretCaretLoc, TSI->getTypeLoc().getBeginLoc(),
+                             TSI, CXXReflectExpr::RK_Type);
+}
+
+ExprResult Sema::ActOnCXXReflectExpr(SourceLocation CaretCaretLoc,
+                                     SourceLocation OperandLoc,
+                                     ValueDecl *D) {
+  return BuildCXXReflectExpr(CaretCaretLoc, OperandLoc, D,
+                             CXXReflectExpr::RK_Declaration);
+}
+
+ExprResult Sema::ActOnCXXReflectGlobalNamespace(SourceLocation CaretCaretLoc,
+                                                 SourceLocation ColonColonLoc) {
+  return BuildCXXReflectExpr(CaretCaretLoc, ColonColonLoc, nullptr,
+                             CXXReflectExpr::RK_GlobalNamespace);
 }
 
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation CaretCaretLoc,
-                                     TypeSourceInfo *TSI) {
-  return CXXReflectExpr::Create(Context, CaretCaretLoc, TSI);
+                                     SourceLocation OperandLoc,
+                                     CXXReflectExpr::operand_type Operand,
+                                     CXXReflectExpr::ReflectionKind Kind) {
+  return CXXReflectExpr::Create(Context, CaretCaretLoc, OperandLoc, Operand,
+                                Kind);
 }
 
 namespace {
@@ -21977,6 +21995,10 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
 
   case BuiltinType::OMPIterator:
     return ExprError(Diag(E->getBeginLoc(), diag::err_omp_iterator_use));
+
+  case BuiltinType::MetaInfo:
+    // std::meta::info expressions are valid — return as-is.
+    return E;
 
   // Everything else should be impossible.
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \

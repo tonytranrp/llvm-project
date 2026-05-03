@@ -7574,6 +7574,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool HaveModules =
       RenderModulesOptions(C, D, Args, Input, Output, HaveCxx20, CmdArgs);
 
+  // Forward C++ language extension flags to CC1.
+  Args.addOptInFlag(CmdArgs, options::OPT_freflection,
+                    options::OPT_fno_reflection);
+  Args.addOptInFlag(CmdArgs, options::OPT_fpattern_matching,
+                    options::OPT_fno_pattern_matching);
+  Args.addOptInFlag(CmdArgs, options::OPT_fcontracts,
+                    options::OPT_fno_contracts);
+
   // -fdelayed-template-parsing is default when targeting MSVC.
   // Many old Windows SDK versions require this to parse.
   //

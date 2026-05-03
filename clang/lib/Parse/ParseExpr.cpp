@@ -1194,6 +1194,12 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     return Res;
   }
 
+  case tok::kw_match: {  // primary-expression: 'match' '(' expr ')' '{' patterns '}'
+    if (!getLangOpts().PatternMatching)
+      break;
+    return ParseMatchExpression();
+  }
+
   case tok::kw___extension__:{//unary-expression:'__extension__' cast-expr [GNU]
     // __extension__ silences extension warnings in the subexpression.
     if (NotPrimaryExpression)

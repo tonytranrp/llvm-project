@@ -470,6 +470,7 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
   case BuiltinType::ArraySection:
   case BuiltinType::OMPArrayShaping:
   case BuiltinType::OMPIterator:
+  case BuiltinType::MetaInfo:
   case BuiltinType::BFloat16:
     break;
   }

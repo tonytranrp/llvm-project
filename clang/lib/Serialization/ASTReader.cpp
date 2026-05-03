@@ -8081,6 +8081,9 @@ QualType ASTReader::GetType(TypeID ID) {
     case PREDEF_TYPE_OMP_ITERATOR:
       T = Context.OMPIteratorTy;
       break;
+    case PREDEF_TYPE_META_INFO_ID:
+      T = Context.MetaInfoTy;
+      break;
 #define SVE_TYPE(Name, Id, SingletonId) \
     case PREDEF_TYPE_##Id##_ID: \
       T = Context.SingletonId; \

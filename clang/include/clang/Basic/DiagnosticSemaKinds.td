@@ -14231,4 +14231,16 @@ def err_cuda_device_kernel_launch_not_supported
 def err_cuda_device_kernel_launch_require_rdc
     : Error<"kernel launch from __device__ or __global__ function requires "
             "relocatable device code (i.e. requires -fgpu-rdc)">;
+
+// Pattern matching diagnostics
+def err_pattern_matching_not_enabled : Error<
+    "pattern matching requires -fpattern-matching">;
+def err_match_arrow_expected : Error<
+    "expected '=>' in match pattern">;
+
+// Contracts diagnostics
+def err_contracts_required : Error<
+    "contracts require -fcontracts">;
+def err_contract_assert_failed : Error<
+    "contract assertion failed">;
 } // end of sema component.

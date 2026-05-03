@@ -5186,6 +5186,10 @@ private:
   ///          on failure, an ExprError.
   ExprResult ParseCXXReflectExpression();
 
+  // Pattern matching parsing
+  /// ParseMatchExpression - parses match(expr) { patterns... }
+  ExprResult ParseMatchExpression();
+
   //
   //
   // -------------------------------------------------------------------------
@@ -7548,6 +7552,9 @@ public:
   ///         unlabeled-statement
   /// \endverbatim
   StmtResult ParseDeferStatement(SourceLocation *TrailingElseLoc);
+
+  /// ParseContractAssertStatement - Parse contract_assert(condition) statement
+  StmtResult ParseContractAssertStatement();
 
   StmtResult ParsePragmaLoopHint(StmtVector &Stmts, ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,

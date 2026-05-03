@@ -313,6 +313,12 @@ Retry:
     Res = ParseReturnStatement();
     SemiError = "co_return";
     break;
+  case tok::kw_contract_assert:     // C++ Contracts: contract_assert statement
+    if (getLangOpts().Contracts) {
+      Res = ParseContractAssertStatement();
+      SemiError = "contract_assert";
+    }
+    break;
   case tok::kw__Defer: // C defer TS: defer-statement
     return ParseDeferStatement(TrailingElseLoc);
 
@@ -2379,6 +2385,37 @@ StmtResult Parser::ParseReturnStatement() {
   if (IsCoreturn)
     return Actions.ActOnCoreturnStmt(getCurScope(), ReturnLoc, R.get());
   return Actions.ActOnReturnStmt(ReturnLoc, R.get(), getCurScope());
+}
+
+/// ParseContractAssertStatement - Parse 'contract_assert(condition);'
+StmtResult Parser::ParseContractAssertStatement() {
+  assert(Tok.is(tok::kw_contract_assert) && "Expected 'contract_assert'");
+  SourceLocation AssertLoc = ConsumeToken();
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.expectAndConsume(diag::err_expected_lparen_after, "contract_assert"))
+    return StmtError();
+
+  ExprResult Condition = ParseExpression();
+  if (Condition.isInvalid()) {
+    T.skipToEnd();
+    return StmtError();
+  }
+
+  // Optional string message
+  StringLiteral *Message = nullptr;
+  if (Tok.is(tok::comma)) {
+    ConsumeToken();
+    ExprResult MsgExpr = ParseAssignmentExpression();
+    if (!MsgExpr.isInvalid()) {
+      if (auto *SL = dyn_cast<StringLiteral>(MsgExpr.get()))
+        Message = SL;
+    }
+  }
+
+  T.consumeClose();
+
+  return Actions.ActOnContractAssertStmt(AssertLoc, Condition.get(), Message);
 }
 
 StmtResult Parser::ParseDeferStatement(SourceLocation *TrailingElseLoc) {

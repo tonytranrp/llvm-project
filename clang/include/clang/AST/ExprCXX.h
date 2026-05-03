@@ -5506,45 +5506,84 @@ public:
 ///  - a type-id, or
 ///  - an id-expression.
 class CXXReflectExpr : public Expr {
+public:
+  /// The kind of reflection operand.
+  enum ReflectionKind : unsigned {
+    /// Reflecting a type-id: ^^int, ^^MyClass
+    RK_Type,
+    /// Reflecting a declaration via id-expression: ^^x, ^^func
+    RK_Declaration,
+    /// Reflecting the global namespace: ^^::
+    RK_GlobalNamespace,
+  };
 
-  // TODO(Reflection): add support for TemplateReference, NamespaceReference and
-  // DeclRefExpr
-  using operand_type = llvm::PointerUnion<const TypeSourceInfo *>;
+  /// Operand type — public so Sema can use it in BuildCXXReflectExpr.
+  using operand_type = llvm::PointerUnion<TypeSourceInfo *, ValueDecl *>;
+
+private:
 
   SourceLocation CaretCaretLoc;
+  SourceLocation OperandLoc;
   operand_type Operand;
+  ReflectionKind Kind;
 
-  CXXReflectExpr(SourceLocation CaretCaretLoc, const TypeSourceInfo *TSI);
+  CXXReflectExpr(SourceLocation CaretCaretLoc, SourceLocation OperandLoc,
+                 operand_type Operand, ReflectionKind Kind, QualType ResultTy,
+                 ExprValueKind VK = VK_PRValue);
   CXXReflectExpr(EmptyShell Empty);
 
 public:
   static CXXReflectExpr *Create(ASTContext &C, SourceLocation OperatorLoc,
-                                TypeSourceInfo *TL);
+                                SourceLocation OperandLoc,
+                                operand_type Operand, ReflectionKind Kind);
 
   static CXXReflectExpr *CreateEmpty(ASTContext &C);
 
+  /// Returns the kind of reflection being performed.
+  ReflectionKind getReflectionKind() const { return Kind; }
+
+  /// Returns the reflected type, if this reflects a type.
+  TypeSourceInfo *getTypeOperand() const {
+    return Kind == RK_Type ? llvm::cast<TypeSourceInfo *>(Operand) : nullptr;
+  }
+
+  /// Returns the reflected declaration, if this reflects a declaration.
+  ValueDecl *getDeclarationOperand() const {
+    return Kind == RK_Declaration ? llvm::cast<ValueDecl *>(Operand) : nullptr;
+  }
+
+  /// Returns true if this reflects the global namespace.
+  bool isGlobalNamespace() const { return Kind == RK_GlobalNamespace; }
+
   SourceLocation getBeginLoc() const LLVM_READONLY {
+    if (Kind == RK_GlobalNamespace)
+      return OperandLoc;
     return llvm::TypeSwitch<operand_type, SourceLocation>(Operand)
-        .Case<const TypeSourceInfo *>(
-            [](auto *Ptr) { return Ptr->getTypeLoc().getBeginLoc(); });
+        .Case<TypeSourceInfo *>(
+            [](auto *Ptr) { return Ptr->getTypeLoc().getBeginLoc(); })
+        .Case<ValueDecl *>([](auto *D) { return D->getBeginLoc(); });
   }
 
   SourceLocation getEndLoc() const LLVM_READONLY {
+    if (Kind == RK_GlobalNamespace)
+      return OperandLoc;
     return llvm::TypeSwitch<operand_type, SourceLocation>(Operand)
-        .Case<const TypeSourceInfo *>(
-            [](auto *Ptr) { return Ptr->getTypeLoc().getEndLoc(); });
+        .Case<TypeSourceInfo *>(
+            [](auto *Ptr) { return Ptr->getTypeLoc().getEndLoc(); })
+        .Case<ValueDecl *>([](auto *D) { return D->getEndLoc(); });
   }
 
   /// Returns location of the '^^'-operator.
   SourceLocation getOperatorLoc() const { return CaretCaretLoc; }
 
+  /// Returns location of the operand.
+  SourceLocation getOperandLoc() const { return OperandLoc; }
+
   child_range children() {
-    // TODO(Reflection)
     return child_range(child_iterator(), child_iterator());
   }
 
   const_child_range children() const {
-    // TODO(Reflection)
     return const_child_range(const_child_iterator(), const_child_iterator());
   }
 
