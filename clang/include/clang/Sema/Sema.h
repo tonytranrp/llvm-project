@@ -14940,6 +14940,12 @@ public:
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, TypeSourceInfo *TSI);
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, SourceLocation OperandLoc,
                                  ValueDecl *D);
+  ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, SourceLocation OperandLoc,
+                                 NamespaceDecl *NS);
+  /// ActOnCXXReflectExpr - Handle ^^name where name could be a namespace,
+  /// declaration, or type. Performs name lookup and dispatches accordingly.
+  ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, CXXScopeSpec &SS,
+                                 UnqualifiedId &Name, Scope *S);
   ExprResult ActOnCXXReflectGlobalNamespace(SourceLocation OpLoc,
                                              SourceLocation ColonColonLoc);
 

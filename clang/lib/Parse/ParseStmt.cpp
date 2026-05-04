@@ -2408,7 +2408,7 @@ StmtResult Parser::ParseContractAssertStatement() {
   if (T.expectAndConsume(diag::err_expected_lparen_after, "contract_assert"))
     return StmtError();
 
-  ExprResult Condition = ParseExpression();
+  ExprResult Condition = ParseAssignmentExpression();
   if (Condition.isInvalid()) {
     T.skipToEnd();
     return StmtError();
@@ -2440,7 +2440,7 @@ StmtResult Parser::ParseContractPreStatement() {
   if (T.expectAndConsume(diag::err_expected_lparen_after, "pre"))
     return StmtError();
 
-  ExprResult Condition = ParseExpression();
+  ExprResult Condition = ParseAssignmentExpression();
   if (Condition.isInvalid()) {
     T.skipToEnd();
     return StmtError();
@@ -2473,7 +2473,7 @@ StmtResult Parser::ParseContractPostStatement() {
   if (T.expectAndConsume(diag::err_expected_lparen_after, "post"))
     return StmtError();
 
-  ExprResult Condition = ParseExpression();
+  ExprResult Condition = ParseAssignmentExpression();
   if (Condition.isInvalid()) {
     T.skipToEnd();
     return StmtError();

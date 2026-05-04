@@ -4670,6 +4670,50 @@ void Parser::ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
       }
     }
 
+    // C++26 Contracts: [[pre: condition]] and [[post: condition]]
+    // Custom parsing for contract attribute syntax where : separates
+    // the attribute name from the condition expression.
+    if (getLangOpts().Contracts && !ScopeName &&
+        Tok.is(tok::colon) &&
+        (AttrName->isStr("pre") || AttrName->isStr("post"))) {
+      SourceLocation ColonLoc = ConsumeToken(); // consume ':'
+
+      // Parse the condition expression
+      ExprResult Condition = ParseAssignmentExpression();
+      if (Condition.isInvalid()) {
+        SkipUntil(tok::r_square, tok::comma, StopAtSemi | StopBeforeMatch);
+        continue;
+      }
+
+      // Optional string message after comma
+      StringLiteral *Message = nullptr;
+      if (Tok.is(tok::comma)) {
+        ConsumeToken();
+        ExprResult MsgExpr = ParseAssignmentExpression();
+        if (!MsgExpr.isInvalid()) {
+          if (auto *SL = dyn_cast<StringLiteral>(MsgExpr.get()))
+            Message = SL;
+        }
+      }
+
+      // Create a contract attribute argument list from the condition
+      // Use ArgsUnion (PointerUnion<Expr*, IdentifierLoc*>) for ParsedAttr
+      SmallVector<ArgsUnion, 2> ContractArgs;
+      ContractArgs.push_back(ArgsUnion(Condition.get()));
+      if (Message)
+        ContractArgs.push_back(ArgsUnion(Message));
+
+      Attrs.addNew(AttrName, SourceRange(AttrLoc, Condition.get()->getEndLoc()),
+                   AttributeScopeInfo(), ContractArgs.data(),
+                   ContractArgs.size(),
+                   ParsedAttr::Form::CXX11());
+      AttrParsed = true;
+
+      if (TryConsumeToken(tok::ellipsis))
+        Diag(Tok, diag::err_cxx11_attribute_forbids_ellipsis) << AttrName;
+      continue;
+    }
+
     if (CommonScopeName) {
       if (ScopeName) {
         Diag(ScopeLoc, diag::err_using_attribute_ns_conflict)

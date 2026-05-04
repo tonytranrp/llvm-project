@@ -18201,6 +18201,62 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation CaretCaretLoc,
                              CXXReflectExpr::RK_Declaration);
 }
 
+ExprResult Sema::ActOnCXXReflectExpr(SourceLocation CaretCaretLoc,
+                                     SourceLocation OperandLoc,
+                                     NamespaceDecl *NS) {
+  return BuildCXXReflectExpr(CaretCaretLoc, OperandLoc, NS,
+                             CXXReflectExpr::RK_Namespace);
+}
+
+ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc, CXXScopeSpec &SS,
+                                      UnqualifiedId &Name, Scope *S) {
+  // Perform name lookup to determine what kind of entity the name refers to.
+  SourceLocation NameLoc = Name.getSourceRange().getBegin();
+
+  // Decompose the UnqualifiedId into a DeclarationNameInfo for lookup.
+  TemplateArgumentListInfo TemplateArgsBuffer;
+  DeclarationNameInfo NameInfo;
+  const TemplateArgumentListInfo *TemplateArgs;
+  DecomposeUnqualifiedId(Name, TemplateArgsBuffer, NameInfo, TemplateArgs);
+
+  // Perform lookup — qualified or unqualified depending on whether we have
+  // a nested-name-specifier (e.g., ^^MyNS::x has SS = "MyNS::").
+  LookupResult R(*this, NameInfo, LookupOrdinaryName);
+  if (SS.isNotEmpty()) {
+    // Qualified lookup: look up the name in the context specified by SS.
+    DeclContext *DC = computeDeclContext(SS, /*EnteringContext=*/false);
+    if (!DC) {
+      Diag(SS.getRange().getBegin(), diag::err_cannot_reflect_operand)
+          << SS.getRange();
+      return ExprError();
+    }
+    LookupQualifiedName(R, DC);
+  } else {
+    // Unqualified lookup: search from the current scope.
+    LookupName(R, S, /*AllowBuiltinCreation=*/false);
+  }
+
+  if (R.isSingleResult()) {
+    NamedDecl *Found = R.getFoundDecl();
+    if (auto *NS = dyn_cast<NamespaceDecl>(Found)) {
+      return ActOnCXXReflectExpr(OpLoc, NameLoc, NS);
+    }
+    if (auto *VD = dyn_cast<ValueDecl>(Found)) {
+      return ActOnCXXReflectExpr(OpLoc, NameLoc, VD);
+    }
+    // If it's a TypeDecl, build a type reflection
+    if (auto *TD = dyn_cast<TypeDecl>(Found)) {
+      QualType QT = Context.getTypeDeclType(TD);
+      TypeSourceInfo *TSI = Context.getTrivialTypeSourceInfo(QT, NameLoc);
+      return ActOnCXXReflectExpr(OpLoc, TSI);
+    }
+  }
+
+  // Ambiguous or not found — diagnose
+  Diag(NameLoc, diag::err_cannot_reflect_operand);
+  return ExprError();
+}
+
 ExprResult Sema::ActOnCXXReflectGlobalNamespace(SourceLocation CaretCaretLoc,
                                                  SourceLocation ColonColonLoc) {
   return BuildCXXReflectExpr(CaretCaretLoc, ColonColonLoc, nullptr,
@@ -18237,6 +18293,15 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_identifier_of:
     MK = CXXReflectionMetafunctionExpr::MK_IdentifierOf;
     break;
+  case tok::kw_decl_of:
+    MK = CXXReflectionMetafunctionExpr::MK_DeclOf;
+    break;
+  case tok::kw_name_of:
+    MK = CXXReflectionMetafunctionExpr::MK_NameOf;
+    break;
+  case tok::kw_members_of:
+    MK = CXXReflectionMetafunctionExpr::MK_MembersOf;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18251,6 +18316,9 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
     case tok::kw_is_type: KwName = "is_type"; break;
     case tok::kw_type_of: KwName = "type_of"; break;
     case tok::kw_identifier_of: KwName = "identifier_of"; break;
+    case tok::kw_decl_of: KwName = "decl_of"; break;
+    case tok::kw_name_of: KwName = "name_of"; break;
+    case tok::kw_members_of: KwName = "members_of"; break;
     default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18276,6 +18344,14 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
     break;
   case CXXReflectionMetafunctionExpr::MK_MembersOf:
     // MVP: not yet implemented in parser dispatch; placeholder
+    ResultTy = MetaInfoTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_DeclOf:
+    // decl_of returns MetaInfoTy (a reflection representing the declaration)
+    ResultTy = MetaInfoTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_NameOf:
+    // name_of returns MetaInfoTy (MVP: placeholder for the name)
     ResultTy = MetaInfoTy;
     break;
   }

@@ -14243,6 +14243,9 @@ def err_contracts_required : Error<
     "contracts require -fcontracts">;
 def err_contract_assert_failed : Error<
     "contract assertion failed">;
+def warn_attribute_pre_post_not_function : Warning<
+    "'%0' contract attribute only applies to functions">,
+    InGroup<IgnoredAttributes>;
 
 // Reflection diagnostics
 def err_reflection_required : Error<
@@ -14253,6 +14256,12 @@ def err_reflection_metafunction_type_of_not_decl : Error<
     "type_of requires a reflection of a declaration">;
 def err_reflection_metafunction_identifier_of_no_name : Error<
     "reflected entity has no identifier">;
+def err_reflection_metafunction_decl_of_not_decl : Error<
+    "decl_of requires a reflection of a declaration">;
+def err_reflection_metafunction_name_of_no_name : Error<
+    "reflected entity has no name">;
+def err_reflection_metafunction_members_of_not_type : Error<
+    "members_of requires a reflection of a type or namespace">;
 def err_splice_not_type : Error<
     "splice expression does not reflect a type">;
 } // end of sema component.

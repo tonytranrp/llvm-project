@@ -1203,7 +1203,10 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
   // C++26 Reflection metafunctions (P2996)
   case tok::kw_is_type:
   case tok::kw_type_of:
-  case tok::kw_identifier_of: {
+  case tok::kw_identifier_of:
+  case tok::kw_decl_of:
+  case tok::kw_name_of:
+  case tok::kw_members_of: {
     if (!getLangOpts().Reflection)
       break;
     return ParseReflectionMetafunction();

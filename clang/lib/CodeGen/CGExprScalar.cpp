@@ -864,6 +864,33 @@ public:
       // MVP: not yet fully implemented; pass through
       return ArgVal;
     }
+    case CXXReflectionMetafunctionExpr::MK_DeclOf: {
+      // decl_of: if the argument is a CXXReflectExpr with RK_Declaration,
+      // return a new CXXReflectExpr pointing to that declaration (emitted as
+      // opaque i64). For the MVP, just pass through the reflection value.
+      return ArgVal;
+    }
+    case CXXReflectionMetafunctionExpr::MK_NameOf: {
+      // name_of: if the argument is a CXXReflectExpr with RK_Declaration,
+      // emit the declaration's identifier as an integer hash (placeholder).
+      // If RK_Type or RK_GlobalNamespace, emit 0.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          // MVP: emit a simple hash of the declaration's name as placeholder
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            auto Name = D->getDeclName().getAsString();
+            uint64_t Hash = 0;
+            for (char C : Name)
+              Hash = Hash * 131 + (unsigned char)C;
+            return Builder.getInt64(Hash);
+          }
+        }
+        // RK_Type or RK_GlobalNamespace: emit 0
+        return Builder.getInt64(0);
+      }
+      // Runtime fallback: pass through
+      return ArgVal;
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
   }

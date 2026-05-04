@@ -454,6 +454,9 @@ def HLSL : LangOpt<"HLSL">;
 // Language option for CMSE extensions
 def Cmse : LangOpt<"Cmse">;
 
+// Language option for C++26 Contracts
+def Contracts : LangOpt<"Contracts">;
+
 // Defines targets for target-specific attributes. Empty lists are unchecked.
 class TargetSpec {
   // Specifies Architectures for which the target applies, based off the
@@ -5466,4 +5469,24 @@ def Personality : InheritableAttr {
   let Args = [DeclArgument<Function, "Routine">];
   let Subjects = SubjectList<[Function]>;
   let Documentation = [PersonalityDocs];
+}
+
+//===----------------------------------------------------------------------===//
+// C++26 Contract Attributes (P2900)
+//===----------------------------------------------------------------------===//
+
+def Pre : InheritableAttr {
+  let Spellings = [Clang<"pre">, CXX11<"","pre", 0>];
+  let Subjects = SubjectList<[Function]>;
+  let Args = [ExprArgument<"Condition">, ExprArgument<"Message", 1>];
+  let Documentation = [Undocumented];
+  let LangOpts = [Contracts];
+}
+
+def Post : InheritableAttr {
+  let Spellings = [Clang<"post">, CXX11<"","post", 0>];
+  let Subjects = SubjectList<[Function]>;
+  let Args = [ExprArgument<"Condition">, ExprArgument<"Message", 1>];
+  let Documentation = [Undocumented];
+  let LangOpts = [Contracts];
 }

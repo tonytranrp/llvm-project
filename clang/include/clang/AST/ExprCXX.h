@@ -5516,12 +5516,14 @@ public:
     RK_Type,
     /// Reflecting a declaration via id-expression: ^^x, ^^func
     RK_Declaration,
+    /// Reflecting a named namespace: ^^MyNS
+    RK_Namespace,
     /// Reflecting the global namespace: ^^::
     RK_GlobalNamespace,
   };
 
   /// Operand type — public so Sema can use it in BuildCXXReflectExpr.
-  using operand_type = llvm::PointerUnion<TypeSourceInfo *, ValueDecl *>;
+  using operand_type = llvm::PointerUnion<TypeSourceInfo *, ValueDecl *, NamespaceDecl *>;
 
 private:
 
@@ -5555,6 +5557,11 @@ public:
     return Kind == RK_Declaration ? llvm::cast<ValueDecl *>(Operand) : nullptr;
   }
 
+  /// Returns the reflected namespace, if this reflects a namespace.
+  NamespaceDecl *getNamespaceOperand() const {
+    return Kind == RK_Namespace ? llvm::cast<NamespaceDecl *>(Operand) : nullptr;
+  }
+
   /// Returns true if this reflects the global namespace.
   bool isGlobalNamespace() const { return Kind == RK_GlobalNamespace; }
 
@@ -5564,7 +5571,8 @@ public:
     return llvm::TypeSwitch<operand_type, SourceLocation>(Operand)
         .Case<TypeSourceInfo *>(
             [](auto *Ptr) { return Ptr->getTypeLoc().getBeginLoc(); })
-        .Case<ValueDecl *>([](auto *D) { return D->getBeginLoc(); });
+        .Case<ValueDecl *>([](auto *D) { return D->getBeginLoc(); })
+        .Case<NamespaceDecl *>([](auto *NS) { return NS->getBeginLoc(); });
   }
 
   SourceLocation getEndLoc() const LLVM_READONLY {
@@ -5573,7 +5581,8 @@ public:
     return llvm::TypeSwitch<operand_type, SourceLocation>(Operand)
         .Case<TypeSourceInfo *>(
             [](auto *Ptr) { return Ptr->getTypeLoc().getEndLoc(); })
-        .Case<ValueDecl *>([](auto *D) { return D->getEndLoc(); });
+        .Case<ValueDecl *>([](auto *D) { return D->getEndLoc(); })
+        .Case<NamespaceDecl *>([](auto *NS) { return NS->getEndLoc(); });
   }
 
   /// Returns location of the '^^'-operator.
@@ -5613,6 +5622,10 @@ public:
     MK_IdentifierOf,
     /// members_of(expr) — returns a pack of reflections for the members
     MK_MembersOf,
+    /// decl_of(expr) — returns a reflection representing the declaration itself
+    MK_DeclOf,
+    /// name_of(expr) — returns a reflection representing the name of the entity
+    MK_NameOf,
   };
 
 private:

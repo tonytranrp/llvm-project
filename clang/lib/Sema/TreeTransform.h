@@ -3083,7 +3083,15 @@ public:
                 ? tok::kw_is_type
                 : Kind == CXXReflectionMetafunctionExpr::MK_TypeOf
                       ? tok::kw_type_of
-                      : tok::kw_identifier_of),
+                      : Kind == CXXReflectionMetafunctionExpr::MK_IdentifierOf
+                            ? tok::kw_identifier_of
+                            : Kind == CXXReflectionMetafunctionExpr::MK_DeclOf
+                                  ? tok::kw_decl_of
+                                  : Kind == CXXReflectionMetafunctionExpr::MK_NameOf
+                                        ? tok::kw_name_of
+                                        : Kind == CXXReflectionMetafunctionExpr::MK_MembersOf
+                                              ? tok::kw_members_of
+                                              : tok::kw_identifier_of),
         LParenLoc, Arg, RParenLoc);
   }
 

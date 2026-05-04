@@ -2607,6 +2607,12 @@ void StmtPrinter::VisitCXXReflectExpr(CXXReflectExpr *S) {
     else
       OS << "<decl>";
     break;
+  case CXXReflectExpr::RK_Namespace:
+    if (auto *NS = S->getNamespaceOperand())
+      OS << NS->getNameAsString();
+    else
+      OS << "<namespace>";
+    break;
   case CXXReflectExpr::RK_GlobalNamespace:
     OS << "::";
     break;

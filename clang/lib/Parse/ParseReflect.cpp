@@ -31,29 +31,12 @@ ExprResult Parser::ParseCXXReflectExpression() {
                                                    ColonColonLoc);
   }
 
-  // Case 2: ^^type-id (type reflection)
-  // Try to parse as a type-id first. This handles ^^int, ^^MyClass,
-  // ^^std::vector<int>, etc.
-  if (isCXXTypeId(TentativeCXXTypeIdContext::AsReflectionOperand)) {
-    TypeResult TR = ParseTypeName(/*TypeOf=*/nullptr);
-    if (TR.isInvalid())
-      return ExprError();
-
-    TypeSourceInfo *TSI = nullptr;
-    QualType QT = Actions.GetTypeFromParser(TR.get(), &TSI);
-
-    if (QT.isNull())
-      return ExprError();
-
-    if (!TSI)
-      TSI = Actions.getASTContext().getTrivialTypeSourceInfo(QT, OperandLoc);
-
-    // Accept all types now (not just builtins)
-    return Actions.ActOnCXXReflectExpr(CaretCaretLoc, TSI);
-  }
-
-  // Case 3: ^^id-expression (declaration reflection)
-  // This handles ^^variable, ^^function_name, ^^ClassName::member, etc.
+  // Case 2: ^^id-expression (namespace, declaration, or type reflection)
+  // Try parsing as an id-expression first. This handles ^^NamespaceName,
+  // ^^variable, ^^function_name, ^^ClassName::member, etc.
+  // We try this before type-id because namespace names are also valid
+  // type-ids in tentative parsing, but we need the id-expression path
+  // for namespace reflection to work.
   if (Tok.is(tok::identifier) || Tok.is(tok::coloncolon) ||
       Tok.is(tok::kw_operator) || Tok.is(tok::tilde) ||
       Tok.is(tok::kw_template)) {
@@ -80,17 +63,38 @@ ExprResult Parser::ParseCXXReflectExpression() {
       return ExprError();
     }
 
-    // Look up the name
-    SourceLocation NameLoc = Name.getSourceRange().getBegin();
-    ExprResult Result = Actions.ActOnCXXReflectExpr(
-        CaretCaretLoc, NameLoc,
-        /*Decl=*/nullptr); // Sema will resolve the name
+    // Let Sema figure out what kind of entity the name refers to.
+    // It will dispatch to the appropriate ActOnCXXReflectExpr overload
+    // (namespace, declaration, or type).
+    ExprResult ER = Actions.ActOnCXXReflectExpr(CaretCaretLoc, SS, Name,
+                                                 getCurScope());
+    if (!ER.isInvalid())
+      return ER;
+    // If Sema couldn't resolve it as an id-expression (e.g., it's a
+    // simple-type-specifier like a class name that wasn't found by lookup),
+    // fall through to try type-id parsing.
+  }
 
-    // For now, if we couldn't resolve as a declaration, try type-id fallback
-    if (Result.isInvalid()) {
-      Diag(OperandLoc, diag::err_cannot_reflect_operand);
-    }
-    return Result;
+  // Case 3: ^^type-id (type reflection)
+  // This handles ^^int, ^^MyClass, ^^std::vector<int>, etc.
+  // Reached when id-expression parsing fails or for built-in types
+  // that aren't identifiers.
+  if (isCXXTypeId(TentativeCXXTypeIdContext::AsReflectionOperand)) {
+    TypeResult TR = ParseTypeName(/*TypeOf=*/nullptr);
+    if (TR.isInvalid())
+      return ExprError();
+
+    TypeSourceInfo *TSI = nullptr;
+    QualType QT = Actions.GetTypeFromParser(TR.get(), &TSI);
+
+    if (QT.isNull())
+      return ExprError();
+
+    if (!TSI)
+      TSI = Actions.getASTContext().getTrivialTypeSourceInfo(QT, OperandLoc);
+
+    // Accept all types now (not just builtins)
+    return Actions.ActOnCXXReflectExpr(CaretCaretLoc, TSI);
   }
 
   Diag(OperandLoc, diag::err_cannot_reflect_operand);
@@ -98,9 +102,11 @@ ExprResult Parser::ParseCXXReflectExpression() {
 }
 
 ExprResult Parser::ParseReflectionMetafunction() {
-  // Parse: is_type(expr), type_of(expr), identifier_of(expr)
+  // Parse: is_type(expr), type_of(expr), identifier_of(expr), decl_of(expr),
+  //        name_of(expr), members_of(expr)
   assert((Tok.is(tok::kw_is_type) || Tok.is(tok::kw_type_of) ||
-          Tok.is(tok::kw_identifier_of)) &&
+          Tok.is(tok::kw_identifier_of) || Tok.is(tok::kw_decl_of) ||
+          Tok.is(tok::kw_name_of) || Tok.is(tok::kw_members_of)) &&
          "Expected reflection metafunction keyword");
   assert(getLangOpts().Reflection && "Reflection not enabled");
 

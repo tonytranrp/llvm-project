@@ -8345,6 +8345,38 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
           << AL << AL.isRegularKeywordAttribute() << D->getLocation();
     handleSimpleAttribute<PointerFieldProtectionAttr>(S, D, AL);
     break;
+
+  // C++26 Contract attributes [[pre: condition]] and [[post: condition]]
+  case ParsedAttr::AT_Pre:
+  case ParsedAttr::AT_Post: {
+    if (!S.getLangOpts().Contracts) {
+      S.Diag(AL.getLoc(), diag::err_contracts_required);
+      break;
+    }
+    if (!isa<FunctionDecl>(D)) {
+      S.Diag(AL.getLoc(), diag::warn_attribute_pre_post_not_function)
+          << (AL.getKind() == ParsedAttr::AT_Pre ? "pre" : "post");
+      break;
+    }
+    // Get the condition expression from the attribute argument.
+    Expr *Cond = AL.getArgAsExpr(0);
+    if (Cond && !Cond->isTypeDependent()) {
+      ExprResult Converted = S.PerformContextuallyConvertToBool(Cond);
+      if (!Converted.isInvalid())
+        Cond = Converted.get();
+    }
+    // Optional message expression (second argument)
+    Expr *Msg = nullptr;
+    if (AL.getNumArgs() > 1)
+      Msg = AL.getArgAsExpr(1);
+    // Attach the appropriate attribute to the function decl.
+    if (AL.getKind() == ParsedAttr::AT_Pre) {
+      D->addAttr(::new (S.Context) PreAttr(S.Context, AL, Cond, Msg));
+    } else {
+      D->addAttr(::new (S.Context) PostAttr(S.Context, AL, Cond, Msg));
+    }
+    break;
+  }
   }
 }
 
