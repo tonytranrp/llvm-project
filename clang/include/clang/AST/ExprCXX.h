@@ -5715,6 +5715,28 @@ public:
     MK_IsSigned,
     /// is_unsigned(expr) — returns bool indicating if the reflected type is unsigned
     MK_IsUnsigned,
+    /// alignment_of(expr) — returns the alignment of a reflected type
+    MK_AlignmentOf,
+    /// bit_size_of(expr) — returns the bit size of a reflected type
+    MK_BitSizeOf,
+    /// rank_of(expr) — returns the array rank of a reflected type
+    MK_RankOf,
+    /// extent_of(expr) — returns the array extent of a reflected type
+    MK_ExtentOf,
+    /// is_array(expr) — returns bool indicating if the reflected type is an array
+    MK_IsArray,
+    /// is_enum(expr) — alias for existing is_enum, already exists
+    /// is_constexpr(expr) — returns bool indicating if the reflected function is constexpr
+    MK_IsConstexpr,
+    /// is_inline_variable(expr) — returns bool indicating if the reflected variable is inline
+    MK_IsInlineVariable,
+    /// is_mutable(expr) — returns bool indicating if the reflected member is mutable
+    MK_IsMutable,
+    /// is_volatile(expr) — already exists
+    /// is_static_data_member(expr) — returns bool indicating if the reflected entity is a static data member
+    MK_IsStaticDataMember,
+    /// is_nonstatic_data_member(expr) — returns bool indicating if the reflected entity is a non-static data member
+    MK_IsNonstaticDataMember,
   };
 
 private:

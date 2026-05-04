@@ -141,7 +141,13 @@ ExprResult Parser::ParseReflectionMetafunction() {
           Tok.is(tok::kw_is_pointer) || Tok.is(tok::kw_is_arithmetic) ||
           Tok.is(tok::kw_is_abstract) || Tok.is(tok::kw_is_final) ||
           Tok.is(tok::kw_is_literal_type) || Tok.is(tok::kw_is_signed) ||
-          Tok.is(tok::kw_is_unsigned)) &&
+          Tok.is(tok::kw_is_unsigned) ||
+          Tok.is(tok::kw_alignment_of) || Tok.is(tok::kw_bit_size_of) ||
+          Tok.is(tok::kw_rank_of) || Tok.is(tok::kw_extent_of) ||
+          Tok.is(tok::kw_is_array) || Tok.is(tok::kw_is_constexpr) ||
+          Tok.is(tok::kw_is_inline_variable) || Tok.is(tok::kw_is_mutable) ||
+          Tok.is(tok::kw_is_static_data_member) ||
+          Tok.is(tok::kw_is_nonstatic_data_member)) &&
          "Expected reflection metafunction keyword");
   assert(getLangOpts().Reflection && "Reflection not enabled");
 

@@ -1537,6 +1537,133 @@ public:
       }
       return Builder.getInt1(false);
     }
+    case CXXReflectionMetafunctionExpr::MK_IsArray: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type)
+          return Builder.getInt1(Reflect->getTypeOperand()->getType()->isArrayType());
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsConstexpr: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FunctionDecl>(D))
+              return Builder.getInt1(FD->isConstexpr());
+            else if (auto *VD = dyn_cast<VarDecl>(D))
+              return Builder.getInt1(VD->isConstexpr());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsInlineVariable: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *VD = dyn_cast<VarDecl>(D))
+              return Builder.getInt1(VD->isInline());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsMutable: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FieldDecl>(D))
+              return Builder.getInt1(FD->isMutable());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsStaticDataMember: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            // Static data members are represented as VarDecl with
+            // isStaticDataMember() == true in Clang's AST.
+            if (auto *VD = dyn_cast<VarDecl>(D))
+              return Builder.getInt1(VD->isStaticDataMember());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsNonstaticDataMember: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            // Non-static data members are represented as FieldDecl.
+            // FieldDecl is always non-static (static data members are VarDecl).
+            return Builder.getInt1(isa<FieldDecl>(D));
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_AlignmentOf: {
+      // alignment_of: returns the alignment of a reflected type
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          auto Alignment = CGF.getContext().getTypeAlignInChars(
+              Reflect->getTypeOperand()->getType());
+          return Builder.getInt64(Alignment.getQuantity());
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_BitSizeOf: {
+      // bit_size_of: returns the bit size of a reflected type
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          auto &Ctx = CGF.getContext();
+          uint64_t BitSize = Ctx.getTypeSize(Reflect->getTypeOperand()->getType());
+          return Builder.getInt64(BitSize);
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_RankOf: {
+      // rank_of: returns the array rank of a reflected type
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          unsigned Rank = 0;
+          QualType T = Reflect->getTypeOperand()->getType();
+          while (T->isArrayType()) {
+            ++Rank;
+            T = T->castAsArrayTypeUnsafe()->getElementType();
+          }
+          return Builder.getInt64(Rank);
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_ExtentOf: {
+      // extent_of: returns the array extent (0 if not an array or unknown bound)
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          QualType T = Reflect->getTypeOperand()->getType();
+          if (auto *CAT = dyn_cast<ConstantArrayType>(T)) {
+            return Builder.getInt64(CAT->getSize().getZExtValue());
+          }
+          return Builder.getInt64(0);
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
   }

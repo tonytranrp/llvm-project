@@ -2021,7 +2021,17 @@ bool CXXReflectionMetafunctionExpr::isBooleanMetafunction() const {
   case MK_IsLiteralType:
   case MK_IsSigned:
   case MK_IsUnsigned:
+  case MK_IsArray:
+  case MK_IsConstexpr:
+  case MK_IsInlineVariable:
+  case MK_IsMutable:
+  case MK_IsStaticDataMember:
+  case MK_IsNonstaticDataMember:
     return true;
+  case MK_AlignmentOf:
+  case MK_BitSizeOf:
+  case MK_RankOf:
+  case MK_ExtentOf:
   case MK_TypeOf:
   case MK_IdentifierOf:
   case MK_MembersOf:

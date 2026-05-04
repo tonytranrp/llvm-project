@@ -18516,6 +18516,36 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_unsigned:
     MK = CXXReflectionMetafunctionExpr::MK_IsUnsigned;
     break;
+  case tok::kw_alignment_of:
+    MK = CXXReflectionMetafunctionExpr::MK_AlignmentOf;
+    break;
+  case tok::kw_bit_size_of:
+    MK = CXXReflectionMetafunctionExpr::MK_BitSizeOf;
+    break;
+  case tok::kw_rank_of:
+    MK = CXXReflectionMetafunctionExpr::MK_RankOf;
+    break;
+  case tok::kw_extent_of:
+    MK = CXXReflectionMetafunctionExpr::MK_ExtentOf;
+    break;
+  case tok::kw_is_array:
+    MK = CXXReflectionMetafunctionExpr::MK_IsArray;
+    break;
+  case tok::kw_is_constexpr:
+    MK = CXXReflectionMetafunctionExpr::MK_IsConstexpr;
+    break;
+  case tok::kw_is_inline_variable:
+    MK = CXXReflectionMetafunctionExpr::MK_IsInlineVariable;
+    break;
+  case tok::kw_is_mutable:
+    MK = CXXReflectionMetafunctionExpr::MK_IsMutable;
+    break;
+  case tok::kw_is_static_data_member:
+    MK = CXXReflectionMetafunctionExpr::MK_IsStaticDataMember;
+    break;
+  case tok::kw_is_nonstatic_data_member:
+    MK = CXXReflectionMetafunctionExpr::MK_IsNonstaticDataMember;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18573,6 +18603,16 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_literal_type: KwName = "is_literal_type"; break;
   case tok::kw_is_signed: KwName = "is_signed"; break;
   case tok::kw_is_unsigned: KwName = "is_unsigned"; break;
+  case tok::kw_alignment_of: KwName = "alignment_of"; break;
+  case tok::kw_bit_size_of: KwName = "bit_size_of"; break;
+  case tok::kw_rank_of: KwName = "rank_of"; break;
+  case tok::kw_extent_of: KwName = "extent_of"; break;
+  case tok::kw_is_array: KwName = "is_array"; break;
+  case tok::kw_is_constexpr: KwName = "is_constexpr"; break;
+  case tok::kw_is_inline_variable: KwName = "is_inline_variable"; break;
+  case tok::kw_is_mutable: KwName = "is_mutable"; break;
+  case tok::kw_is_static_data_member: KwName = "is_static_data_member"; break;
+  case tok::kw_is_nonstatic_data_member: KwName = "is_nonstatic_data_member"; break;
   default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18668,11 +18708,24 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_IsLiteralType:
   case CXXReflectionMetafunctionExpr::MK_IsSigned:
   case CXXReflectionMetafunctionExpr::MK_IsUnsigned:
+  case CXXReflectionMetafunctionExpr::MK_IsArray:
+  case CXXReflectionMetafunctionExpr::MK_IsConstexpr:
+  case CXXReflectionMetafunctionExpr::MK_IsInlineVariable:
+  case CXXReflectionMetafunctionExpr::MK_IsMutable:
+  case CXXReflectionMetafunctionExpr::MK_IsStaticDataMember:
+  case CXXReflectionMetafunctionExpr::MK_IsNonstaticDataMember:
     // Access/member/type queries return bool
     ResultTy = Context.BoolTy;
     break;
   case CXXReflectionMetafunctionExpr::MK_OffsetOf:
-    // offset_of returns the byte offset (as size_t)
+  case CXXReflectionMetafunctionExpr::MK_AlignmentOf:
+    // offset_of/alignment_of return size_t-like values
+    ResultTy = Context.LongLongTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_BitSizeOf:
+  case CXXReflectionMetafunctionExpr::MK_RankOf:
+  case CXXReflectionMetafunctionExpr::MK_ExtentOf:
+    // bit_size_of/rank_of/extent_of return integer values
     ResultTy = Context.LongLongTy;
     break;
   }
@@ -18942,6 +18995,58 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
         ResultValue = RE->getTypeOperand()->getType()->isUnsignedIntegerType();
       }
       break;
+    case CXXReflectionMetafunctionExpr::MK_IsArray:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isArrayType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsConstexpr:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *FD = dyn_cast<FunctionDecl>(D))
+            ResultValue = FD->isConstexpr();
+          else if (auto *VD = dyn_cast<VarDecl>(D))
+            ResultValue = VD->isConstexpr();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsInlineVariable:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *VD = dyn_cast<VarDecl>(D))
+            ResultValue = VD->isInline();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsMutable:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *FD = dyn_cast<FieldDecl>(D))
+            ResultValue = FD->isMutable();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsStaticDataMember:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *VD = dyn_cast<VarDecl>(D))
+            ResultValue = VD->isStaticDataMember();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsNonstaticDataMember:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<FieldDecl>(D);
+      }
+      break;
+    // alignment_of, bit_size_of, rank_of, extent_of:
+    // These require layout/type info computed at CodeGen time, like offset_of.
+    // Sema constant evaluation is deferred.
+    case CXXReflectionMetafunctionExpr::MK_AlignmentOf:
+    case CXXReflectionMetafunctionExpr::MK_BitSizeOf:
+    case CXXReflectionMetafunctionExpr::MK_RankOf:
+    case CXXReflectionMetafunctionExpr::MK_ExtentOf:
     default:
       break;
     }
