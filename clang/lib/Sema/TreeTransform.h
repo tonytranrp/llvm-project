@@ -3099,7 +3099,17 @@ public:
                                         ? tok::kw_name_of
                                         : Kind == CXXReflectionMetafunctionExpr::MK_MembersOf
                                               ? tok::kw_members_of
-                                              : tok::kw_identifier_of),
+                                              : Kind == CXXReflectionMetafunctionExpr::MK_IsClass
+                                                    ? tok::kw_is_class
+                                                    : Kind == CXXReflectionMetafunctionExpr::MK_IsFunction
+                                                          ? tok::kw_is_function
+                                                          : Kind == CXXReflectionMetafunctionExpr::MK_IsNamespace
+                                                                ? tok::kw_is_namespace
+                                                                : Kind == CXXReflectionMetafunctionExpr::MK_IsEnum
+                                                                      ? tok::kw_is_enum
+                                                                      : Kind == CXXReflectionMetafunctionExpr::MK_ParentOf
+                                                                            ? tok::kw_parent_of
+                                                                            : tok::kw_identifier_of),
         LParenLoc, Arg, RParenLoc);
   }
 

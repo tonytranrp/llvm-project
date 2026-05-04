@@ -18356,6 +18356,21 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_members_of:
     MK = CXXReflectionMetafunctionExpr::MK_MembersOf;
     break;
+  case tok::kw_is_class:
+    MK = CXXReflectionMetafunctionExpr::MK_IsClass;
+    break;
+  case tok::kw_is_function:
+    MK = CXXReflectionMetafunctionExpr::MK_IsFunction;
+    break;
+  case tok::kw_is_namespace:
+    MK = CXXReflectionMetafunctionExpr::MK_IsNamespace;
+    break;
+  case tok::kw_is_enum:
+    MK = CXXReflectionMetafunctionExpr::MK_IsEnum;
+    break;
+  case tok::kw_parent_of:
+    MK = CXXReflectionMetafunctionExpr::MK_ParentOf;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18373,6 +18388,11 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
     case tok::kw_decl_of: KwName = "decl_of"; break;
     case tok::kw_name_of: KwName = "name_of"; break;
     case tok::kw_members_of: KwName = "members_of"; break;
+    case tok::kw_is_class: KwName = "is_class"; break;
+    case tok::kw_is_function: KwName = "is_function"; break;
+    case tok::kw_is_namespace: KwName = "is_namespace"; break;
+    case tok::kw_is_enum: KwName = "is_enum"; break;
+    case tok::kw_parent_of: KwName = "parent_of"; break;
     default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18406,6 +18426,26 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
     break;
   case CXXReflectionMetafunctionExpr::MK_NameOf:
     // name_of returns MetaInfoTy (MVP: placeholder for the name)
+    ResultTy = MetaInfoTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_IsClass:
+    // is_class returns bool
+    ResultTy = Context.BoolTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_IsFunction:
+    // is_function returns bool
+    ResultTy = Context.BoolTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_IsNamespace:
+    // is_namespace returns bool
+    ResultTy = Context.BoolTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_IsEnum:
+    // is_enum returns bool
+    ResultTy = Context.BoolTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_ParentOf:
+    // parent_of returns MetaInfoTy (a reflection of the parent entity)
     ResultTy = MetaInfoTy;
     break;
   }

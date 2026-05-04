@@ -26,6 +26,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/StmtVisitor.h"
@@ -946,6 +947,135 @@ public:
       }
       // Runtime fallback: pass through
       return ArgVal;
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsClass: {
+      // is_class: check if the argument is a reflection of a class/struct.
+      // Compile-time: if argument is CXXReflectExpr with RK_Type, check
+      // if the type is a RecordType with a CXXRecordDecl.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *TSI = Reflect->getTypeOperand()) {
+            QualType T = TSI->getType();
+            bool IsClass = T->isRecordType() && isa<CXXRecordDecl>(T->getAsCXXRecordDecl());
+            return Builder.getInt1(IsClass);
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      // Runtime fallback: check tag==0 (RK_Type) as approximation
+      if (ArgVal) {
+        Value *Shifted = Builder.CreateLShr(ArgVal, 60);
+        Value *TagZero = Builder.getInt64(0);
+        return Builder.CreateICmpEQ(Shifted, TagZero);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsFunction: {
+      // is_function: check if the argument is a reflection of a function.
+      // Compile-time: if argument is CXXReflectExpr with RK_Declaration, check
+      // if the decl is a FunctionDecl.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            return Builder.getInt1(isa<FunctionDecl>(D));
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      // Runtime fallback: check tag==1 (RK_Declaration) as approximation
+      if (ArgVal) {
+        Value *Shifted = Builder.CreateLShr(ArgVal, 60);
+        Value *TagOne = Builder.getInt64(1);
+        return Builder.CreateICmpEQ(Shifted, TagOne);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsNamespace: {
+      // is_namespace: check if the argument is a reflection of a namespace.
+      // Compile-time: if argument is CXXReflectExpr with RK_Namespace or
+      // RK_GlobalNamespace, return true.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        bool IsNS = Reflect->getReflectionKind() == CXXReflectExpr::RK_Namespace ||
+                    Reflect->getReflectionKind() == CXXReflectExpr::RK_GlobalNamespace;
+        return Builder.getInt1(IsNS);
+      }
+      // Runtime fallback: check tag==2 or tag==3
+      if (ArgVal) {
+        Value *Shifted = Builder.CreateLShr(ArgVal, 60);
+        Value *TagTwo = Builder.getInt64(2);
+        Value *TagThree = Builder.getInt64(3);
+        Value *IsTwo = Builder.CreateICmpEQ(Shifted, TagTwo);
+        Value *IsThree = Builder.CreateICmpEQ(Shifted, TagThree);
+        return Builder.CreateOr(IsTwo, IsThree);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsEnum: {
+      // is_enum: check if the argument is a reflection of an enum.
+      // Compile-time: if argument is CXXReflectExpr with RK_Type, check
+      // if the type is an EnumType.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *TSI = Reflect->getTypeOperand()) {
+            QualType T = TSI->getType();
+            return Builder.getInt1(T->isEnumeralType());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      // Runtime fallback: check tag==0 (RK_Type) as approximation
+      if (ArgVal) {
+        Value *Shifted = Builder.CreateLShr(ArgVal, 60);
+        Value *TagZero = Builder.getInt64(0);
+        return Builder.CreateICmpEQ(Shifted, TagZero);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_ParentOf: {
+      // parent_of: return a reflection of the parent entity.
+      // Compile-time: if argument is CXXReflectExpr, try to get the parent
+      // decl/namespace and return a new reflection of it.
+      // For MVP, if the reflected entity is a CXXRecordDecl, return a
+      // reflection of its parent (namespace or class).
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *TSI = Reflect->getTypeOperand()) {
+            QualType T = TSI->getType();
+            if (auto *RD = T->getAsCXXRecordDecl()) {
+              auto *ParentDC = RD->getParent();
+              if (ParentDC->isNamespace()) {
+                // Return a namespace reflection: encode as (2 << 60) | ptr
+                auto *NSD = cast<NamespaceDecl>(ParentDC);
+                uint64_t PtrVal = reinterpret_cast<uint64_t>(NSD);
+                uint64_t Encoded = (2ULL << 60) | (PtrVal & 0x0FFFFFFFFFFFFFFFULL);
+                return Builder.getInt64(Encoded);
+              } else if (ParentDC->isRecord()) {
+                // Parent is a class: encode as type reflection (0 << 60) | ptr
+                uint64_t PtrVal = reinterpret_cast<uint64_t>(ParentDC);
+                uint64_t Encoded = (0ULL << 60) | (PtrVal & 0x0FFFFFFFFFFFFFFFULL);
+                return Builder.getInt64(Encoded);
+              }
+            }
+          }
+        } else if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            auto *ParentDC = D->getDeclContext();
+            if (ParentDC->isNamespace()) {
+              uint64_t PtrVal = reinterpret_cast<uint64_t>(cast<NamespaceDecl>(ParentDC));
+              uint64_t Encoded = (2ULL << 60) | (PtrVal & 0x0FFFFFFFFFFFFFFFULL);
+              return Builder.getInt64(Encoded);
+            } else if (ParentDC->isRecord()) {
+              uint64_t PtrVal = reinterpret_cast<uint64_t>(ParentDC);
+              uint64_t Encoded = (0ULL << 60) | (PtrVal & 0x0FFFFFFFFFFFFFFFULL);
+              return Builder.getInt64(Encoded);
+            }
+          }
+        }
+        // Fallback: return 0
+        return Builder.getInt64(0);
+      }
+      // Runtime fallback: return 0 (can't determine parent at runtime in MVP)
+      return Builder.getInt64(0);
     }
     }
     llvm_unreachable("unexpected metafunction kind");

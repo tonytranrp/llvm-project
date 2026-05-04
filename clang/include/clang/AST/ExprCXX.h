@@ -5635,6 +5635,16 @@ public:
     MK_DeclOf,
     /// name_of(expr) — returns a reflection representing the name of the entity
     MK_NameOf,
+    /// is_class(expr) — returns bool indicating if the reflection is of a class/struct
+    MK_IsClass,
+    /// is_function(expr) — returns bool indicating if the reflection is of a function
+    MK_IsFunction,
+    /// is_namespace(expr) — returns bool indicating if the reflection is of a namespace
+    MK_IsNamespace,
+    /// is_enum(expr) — returns bool indicating if the reflection is of an enum
+    MK_IsEnum,
+    /// parent_of(expr) — returns a reflection of the parent entity
+    MK_ParentOf,
   };
 
 private:
