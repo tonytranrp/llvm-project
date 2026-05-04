@@ -14237,6 +14237,14 @@ def err_pattern_matching_not_enabled : Error<
     "pattern matching requires -fpattern-matching">;
 def err_match_arrow_expected : Error<
     "expected '=>' in match pattern">;
+def warn_non_exhaustive_match : Warning<
+    "non-exhaustive match expression: values of type %0 are not covered">,
+    InGroup<DiagGroup<"pattern-matching">>, DefaultIgnore;
+def warn_unreachable_pattern : Warning<
+    "pattern is unreachable because it is subsumed by a previous pattern">,
+    InGroup<DiagGroup<"pattern-matching">>, DefaultIgnore;
+def note_uncovered_enum_value : Note<
+    "enumerator %0 is not covered">;
 
 // Contracts diagnostics
 def err_contracts_required : Error<

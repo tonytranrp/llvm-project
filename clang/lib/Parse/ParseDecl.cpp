@@ -7414,6 +7414,86 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
         TrailingReturnTypeLoc = Range.getBegin();
         EndLoc = Range.getEnd();
       }
+
+      // P2900: Parse contract-specifier-seq after function parameters.
+      // Syntax: pre(condition) post(condition) post(id, condition)
+      if (getLangOpts().Contracts && Tok.isOneOf(tok::kw_pre, tok::kw_post)) {
+        while (Tok.isOneOf(tok::kw_pre, tok::kw_post)) {
+          bool IsPre = Tok.is(tok::kw_pre);
+          SourceLocation ContractLoc = ConsumeToken();
+
+          BalancedDelimiterTracker ContractT(*this, tok::l_paren);
+          if (ContractT.expectAndConsume(
+                  diag::err_expected_lparen_after, IsPre ? "pre" : "post")) {
+            SkipUntil(tok::r_paren, StopBeforeMatch);
+            if (Tok.is(tok::r_paren))
+              ConsumeToken();
+            continue;
+          }
+
+          // For post: check for the post(id, condition) syntax where
+          // id names the return value.
+          ExprResult Condition;
+          IdentifierInfo *ReturnName = nullptr;
+          SourceLocation ReturnNameLoc;
+
+          Condition = ParseAssignmentExpression();
+          if (Condition.isInvalid()) {
+            ContractT.skipToEnd();
+            continue;
+          }
+
+          // Check if this is post(identifier, condition) syntax:
+          // The first expression is just an identifier naming the return value
+          if (!IsPre && Tok.is(tok::comma)) {
+            if (auto *DRE = dyn_cast_or_null<DeclRefExpr>(Condition.get())) {
+              if (DRE->getDecl()->getKind() == Decl::ParmVar ||
+                  isa<VarDecl>(DRE->getDecl())) {
+                // This looks like post(r, condition) — re-parse
+                ReturnName = DRE->getDecl()->getIdentifier();
+                ReturnNameLoc = DRE->getLocation();
+                ConsumeToken(); // eat comma
+                Condition = ParseAssignmentExpression();
+                if (Condition.isInvalid()) {
+                  ContractT.skipToEnd();
+                  continue;
+                }
+              }
+            }
+          }
+
+          // Optional string message
+          StringLiteral *Message = nullptr;
+          if (Tok.is(tok::comma)) {
+            ConsumeToken();
+            ExprResult MsgExpr = ParseAssignmentExpression();
+            if (!MsgExpr.isInvalid()) {
+              if (auto *SL = dyn_cast<StringLiteral>(MsgExpr.get()))
+                Message = SL;
+            }
+          }
+
+          ContractT.consumeClose();
+          SourceLocation CloseLoc = ContractT.getCloseLocation();
+
+          // Create a ParsedAttr for the contract clause using the
+          // ParsedAttributes pool.
+          SmallVector<ArgsUnion, 4> AttrArgs;
+          AttrArgs.push_back(ArgsUnion(Condition.get()));
+          if (Message)
+            AttrArgs.push_back(ArgsUnion(Message));
+
+          FnAttrs.addNew(
+              IsPre ? PP.getIdentifierInfo("pre") : PP.getIdentifierInfo("post"),
+              SourceRange(ContractLoc, CloseLoc),
+              AttributeScopeInfo(),
+              AttrArgs.data(), AttrArgs.size(),
+              ParsedAttr::Form::GNU());
+
+          if (EndLoc.isInvalid() || CloseLoc.isValid())
+            EndLoc = CloseLoc;
+        }
+      }
     } else {
       MaybeParseCXX11Attributes(FnAttrs);
     }

@@ -2425,6 +2425,11 @@ public:
   void EmitDestructorBody(FunctionArgList &Args);
   void emitImplicitAssignmentOperatorBody(FunctionArgList &Args);
   void EmitFunctionBody(const Stmt *Body);
+
+  /// Emit a contract check: if (!Cond) trap. Category is "precondition" or
+  /// "postcondition". Message is an optional string expression.
+  void EmitContractCheck(const Expr *Cond, StringRef Category,
+                         const Expr *Message);
   void EmitBlockWithFallThrough(llvm::BasicBlock *BB, const Stmt *S);
 
   void EmitForwardingCallToLambda(const CXXMethodDecl *LambdaCallOperator,

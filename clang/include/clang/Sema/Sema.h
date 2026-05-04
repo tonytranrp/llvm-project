@@ -14986,6 +14986,34 @@ public:
                             SmallVectorImpl<SourceLocation> &ArrowLocs,
                             SmallVectorImpl<ExprResult> &Results,
                             SmallVectorImpl<ExprResult> &Guards);
+
+  /// Check exhaustiveness of a match expression.
+  /// Warns if the match is non-exhaustive (not all possible values of the
+  /// scrutinee type are covered) and warns about unreachable patterns
+  /// (patterns subsumed by earlier ones).
+  void CheckMatchExhaustiveness(
+      SourceLocation MatchLoc, Expr *Scrutinee,
+      SmallVectorImpl<ExprResult> &Patterns,
+      SmallVectorImpl<SourceLocation> &ArrowLocs,
+      SmallVectorImpl<ExprResult> &Results,
+      SmallVectorImpl<ExprResult> &Guards);
+
+  /// Classify a lowered pattern expression into a pattern kind for
+  /// exhaustiveness analysis.
+  enum class PatternKind {
+    Wildcard,       ///< _ or identifier binding (covers everything)
+    Literal,        ///< expression pattern (covers a specific value)
+    TypePattern,    ///< ?type pattern
+    Destructuring,  ///< [p1, p2, ...] pattern
+    Unknown         ///< cannot classify
+  };
+
+  /// Determine the kind of a lowered pattern expression.
+  PatternKind classifyPattern(Expr *Pattern);
+
+  /// Check if PatternA subsumes PatternB (every value matched by B is
+  /// also matched by A). This is used for unreachable pattern detection.
+  bool patternSubsumes(Expr *PatternA, Expr *PatternB);
   ExprResult ActOnWildcardPattern(SourceLocation UnderscoreLoc);
   ExprResult ActOnIdentifierPattern(SourceLocation IdLoc, IdentifierInfo *II);
   ExprResult ActOnDestructuringPattern(

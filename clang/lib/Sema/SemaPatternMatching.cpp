@@ -24,17 +24,27 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/DeclSpec.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 using namespace clang;
 
 ExprResult Sema::ActOnWildcardPattern(SourceLocation UnderscoreLoc) {
-  return ActOnCXXBoolLiteral(UnderscoreLoc, tok::kw_true);
+  // Create !false as the lowered form of wildcard _.
+  // This evaluates to true (same CodeGen), but can be distinguished from
+  // a literal `true` pattern by classifyPattern for exhaustiveness checking.
+  ExprResult FalseLit = ActOnCXXBoolLiteral(UnderscoreLoc, tok::kw_false);
+  return CreateBuiltinUnaryOp(UnderscoreLoc, UnaryOperatorKind::UO_LNot,
+                              FalseLit.get());
 }
 
 ExprResult Sema::ActOnIdentifierPattern(SourceLocation IdLoc,
                                         IdentifierInfo *II) {
   // TODO(Tier 2): Create a proper binding pattern that introduces a variable.
-  return ActOnCXXBoolLiteral(IdLoc, tok::kw_true);
+  // For now, use !false (same as wildcard _) since identifier bindings
+  // match everything and act as wildcards for coverage purposes.
+  ExprResult FalseLit = ActOnCXXBoolLiteral(IdLoc, tok::kw_false);
+  return CreateBuiltinUnaryOp(IdLoc, UnaryOperatorKind::UO_LNot,
+                              FalseLit.get());
 }
 
 ExprResult Sema::ActOnBindingPattern(
@@ -226,6 +236,10 @@ ExprResult Sema::ActOnMatchExpr(SourceLocation MatchLoc,
   if (!Scrutinee)
     return ExprError();
 
+  // Run exhaustiveness checking before lowering to ternary conditionals.
+  CheckMatchExhaustiveness(MatchLoc, Scrutinee, Patterns, ArrowLocs,
+                           Results, Guards);
+
   ExprResult Result = Results.back().get();
   if (Result.isInvalid())
     return ExprError();
@@ -285,6 +299,416 @@ ExprResult Sema::ActOnMatchExpr(SourceLocation MatchLoc,
   }
 
   return Result;
+}
+
+//===----------------------------------------------------------------------===//
+// Pattern Matching Exhaustiveness Checking
+//===----------------------------------------------------------------------===//
+
+Sema::PatternKind Sema::classifyPattern(Expr *Pattern) {
+  if (!Pattern)
+    return PatternKind::Unknown;
+
+  // Wildcard pattern: lowered to UnaryOperator(!false) by ActOnWildcardPattern.
+  // Detect !false as the wildcard marker.
+  if (auto *UnaryOp = dyn_cast<UnaryOperator>(Pattern)) {
+    if (UnaryOp->getOpcode() == UO_LNot) {
+      if (auto *InnerBool = dyn_cast<CXXBoolLiteralExpr>(UnaryOp->getSubExpr())) {
+        if (!InnerBool->getValue()) // !false = wildcard
+          return PatternKind::Wildcard;
+      }
+    }
+  }
+
+  // CXXBoolLiteralExpr: true/false are literals (not wildcards).
+  if (auto *BoolLit = dyn_cast<CXXBoolLiteralExpr>(Pattern)) {
+    return PatternKind::Literal;
+  }
+
+  // Identifier binding pattern: lowered to UnaryOperator(!false) by
+  // ActOnIdentifierPattern. Acts as wildcard for coverage purposes.
+
+  // Binding destructuring pattern: auto [x, y] lowered to comma-operator chain
+  // whose RHS is a wildcard pattern (UnaryOperator(!false)). Check for
+  // BinaryOperator with BO_Comma whose RHS is a wildcard marker.
+  if (auto *BinOp = dyn_cast<BinaryOperator>(Pattern)) {
+    if (BinOp->isCommaOp()) {
+      // Check if the RHS is a wildcard marker (!false)
+      if (classifyPattern(BinOp->getRHS()) == PatternKind::Wildcard)
+        return PatternKind::Wildcard; // binding pattern acts as wildcard
+    }
+    // Destructuring pattern [p1, p2] lowered to p1 && p2
+    if (BinOp->getOpcode() == BO_LAnd) {
+      return PatternKind::Destructuring;
+    }
+  }
+
+  // Type pattern: ?type lowered to TypeTraitExpr
+  if (isa<TypeTraitExpr>(Pattern)) {
+    return PatternKind::TypePattern;
+  }
+
+  // Integer literal, enum constant, or other expression pattern
+  if (isa<IntegerLiteral>(Pattern) || isa<EnumConstantDecl>(
+      Pattern->getReferencedDeclOfCallee())) {
+    return PatternKind::Literal;
+  }
+
+  // DeclRefExpr referencing an enum constant
+  if (auto *DRE = dyn_cast<DeclRefExpr>(Pattern)) {
+    if (isa<EnumConstantDecl>(DRE->getDecl()))
+      return PatternKind::Literal;
+  }
+
+  // MemberExpr referencing an enum constant
+  if (auto *ME = dyn_cast<MemberExpr>(Pattern)) {
+    if (isa<EnumConstantDecl>(ME->getMemberDecl()))
+      return PatternKind::Literal;
+  }
+
+  // Any other expression that can be evaluated to a constant integer value
+  // (covers cases like `1 + 0`, static_cast<MyEnum>(0), etc.)
+  if (Pattern->isEvaluatable(Context)) {
+    return PatternKind::Literal;
+  }
+
+  // Character literal
+  if (isa<CharacterLiteral>(Pattern))
+    return PatternKind::Literal;
+
+  // Floating literal
+  if (isa<FloatingLiteral>(Pattern))
+    return PatternKind::Literal;
+
+  // String literal
+  if (isa<StringLiteral>(Pattern))
+    return PatternKind::Literal;
+
+  return PatternKind::Unknown;
+}
+
+bool Sema::patternSubsumes(Expr *PatternA, Expr *PatternB) {
+  if (!PatternA || !PatternB)
+    return false;
+
+  PatternKind KindA = classifyPattern(PatternA);
+  PatternKind KindB = classifyPattern(PatternB);
+
+  // Wildcard subsumes everything
+  if (KindA == PatternKind::Wildcard)
+    return true;
+
+  // TypePattern subsumes another TypePattern with the same type
+  if (KindA == PatternKind::TypePattern && KindB == PatternKind::TypePattern) {
+    auto *TraitA = cast<TypeTraitExpr>(PatternA);
+    auto *TraitB = cast<TypeTraitExpr>(PatternB);
+    // If both are __is_same with the same second type argument, A subsumes B
+    if (TraitA->getNumArgs() == 2 && TraitB->getNumArgs() == 2) {
+      if (Context.hasSameType(TraitA->getArg(1)->getType(),
+                              TraitB->getArg(1)->getType()))
+        return true;
+    }
+    return false;
+  }
+
+  // Literal subsumes the same literal value
+  if (KindA == PatternKind::Literal && KindB == PatternKind::Literal) {
+    // For enum constants, check if they refer to the same declaration
+    EnumConstantDecl *EnumA = nullptr, *EnumB = nullptr;
+    if (auto *DRE = dyn_cast<DeclRefExpr>(PatternA))
+      EnumA = dyn_cast<EnumConstantDecl>(DRE->getDecl());
+    if (auto *ME = dyn_cast<MemberExpr>(PatternA))
+      EnumA = dyn_cast<EnumConstantDecl>(ME->getMemberDecl());
+    if (auto *DRE = dyn_cast<DeclRefExpr>(PatternB))
+      EnumB = dyn_cast<EnumConstantDecl>(DRE->getDecl());
+    if (auto *ME = dyn_cast<MemberExpr>(PatternB))
+      EnumB = dyn_cast<EnumConstantDecl>(ME->getMemberDecl());
+
+    if (EnumA && EnumB)
+      return EnumA == EnumB;
+
+    // For integer literals, check constant-evaluated equality
+    if (PatternA->isIntegerConstantExpr(Context) &&
+        PatternB->isIntegerConstantExpr(Context)) {
+      llvm::APSInt ValueA = PatternA->EvaluateKnownConstInt(Context);
+      llvm::APSInt ValueB = PatternB->EvaluateKnownConstInt(Context);
+      return ValueA == ValueB;
+    }
+
+    // For boolean literals
+    if (auto *BoolA = dyn_cast<CXXBoolLiteralExpr>(PatternA)) {
+      if (auto *BoolB = dyn_cast<CXXBoolLiteralExpr>(PatternB)) {
+        return BoolA->getValue() == BoolB->getValue();
+      }
+    }
+
+    return false;
+  }
+
+  // Destructuring pattern subsumes another destructuring pattern if each
+  // sub-pattern subsumes
+  if (KindA == PatternKind::Destructuring &&
+      KindB == PatternKind::Destructuring) {
+    // Collect sub-patterns from the && chains
+    SmallVector<Expr *, 4> SubPatsA, SubPatsB;
+    auto collectAndOperands = [](Expr *E, SmallVector<Expr *, 4> &Out) {
+      SmallVector<Expr *, 8> Worklist;
+      Worklist.push_back(E);
+      while (!Worklist.empty()) {
+        Expr *Cur = Worklist.pop_back_val();
+        if (auto *BO = dyn_cast<BinaryOperator>(Cur)) {
+          if (BO->getOpcode() == BO_LAnd) {
+            Worklist.push_back(BO->getLHS());
+            Worklist.push_back(BO->getRHS());
+            continue;
+          }
+        }
+        Out.push_back(Cur);
+      }
+    };
+    collectAndOperands(PatternA, SubPatsA);
+    collectAndOperands(PatternB, SubPatsB);
+    if (SubPatsA.size() != SubPatsB.size())
+      return false;
+    for (unsigned I = 0; I < SubPatsA.size(); ++I) {
+      if (!patternSubsumes(SubPatsA[I], SubPatsB[I]))
+        return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+void Sema::CheckMatchExhaustiveness(
+    SourceLocation MatchLoc, Expr *Scrutinee,
+    SmallVectorImpl<ExprResult> &Patterns,
+    SmallVectorImpl<SourceLocation> &ArrowLocs,
+    SmallVectorImpl<ExprResult> &Results,
+    SmallVectorImpl<ExprResult> &Guards) {
+
+  if (!Scrutinee || Scrutinee->isTypeDependent())
+    return;
+
+  if (Patterns.empty())
+    return;
+
+  QualType ScrutineeType = Scrutinee->getType();
+  if (ScrutineeType.isNull())
+    return;
+
+  // Check for unreachable patterns first
+  for (unsigned I = 0; I < Patterns.size(); ++I) {
+    Expr *PatI = Patterns[I].get();
+    if (!PatI || PatI->isTypeDependent())
+      continue;
+
+    // A pattern is unreachable if any earlier pattern subsumes it.
+    // But: if the earlier pattern has a guard, it does NOT fully subsume
+    // a later pattern (the guard may fail).
+    for (unsigned J = 0; J < I; ++J) {
+      Expr *PatJ = Patterns[J].get();
+      if (!PatJ || PatJ->isTypeDependent())
+        continue;
+
+      // If pattern J has a guard, it does not fully subsume pattern I
+      // because the guard might fail.
+      bool JHasGuard = (J < Guards.size() && Guards[J].isUsable() &&
+                        Guards[J].get() != nullptr);
+      if (JHasGuard)
+        continue;
+
+      if (patternSubsumes(PatJ, PatI)) {
+        Diag(PatI->getExprLoc(), diag::warn_unreachable_pattern);
+        break; // Only warn once per pattern
+      }
+    }
+  }
+
+  // Check exhaustiveness: determine if all possible values of the scrutinee
+  // type are covered by some pattern.
+
+  // First, check if any wildcard pattern exists — if so, the match is
+  // exhaustive (for the simple cases we handle). But wildcard with a guard
+  // may not cover all cases.
+  bool HasWildcardWithoutGuard = false;
+  for (unsigned I = 0; I < Patterns.size(); ++I) {
+    Expr *Pat = Patterns[I].get();
+    if (!Pat)
+      continue;
+    PatternKind Kind = classifyPattern(Pat);
+    bool HasGuard = (I < Guards.size() && Guards[I].isUsable() &&
+                     Guards[I].get() != nullptr);
+    if ((Kind == PatternKind::Wildcard) && !HasGuard) {
+      HasWildcardWithoutGuard = true;
+      break;
+    }
+  }
+
+  // For enum types, do precise exhaustiveness checking
+  const EnumType *ET = ScrutineeType->getAs<EnumType>();
+  if (ET) {
+    const EnumDecl *ED = ET->getDecl();
+    if (!ED || ED->isDependentType())
+      return;
+
+    // Collect all enumerators
+    SmallVector<const EnumConstantDecl *, 8> Enumerators;
+    for (const auto *ECD : ED->enumerators())
+      Enumerators.push_back(ECD);
+
+    if (Enumerators.empty())
+      return;
+
+    // If there's a wildcard without guard, all enumerators are covered
+    if (HasWildcardWithoutGuard)
+      return;
+
+    // Check which enumerators are covered
+    llvm::SmallPtrSet<const EnumConstantDecl *, 8> CoveredEnums;
+
+    for (unsigned I = 0; I < Patterns.size(); ++I) {
+      Expr *Pat = Patterns[I].get();
+      if (!Pat)
+        continue;
+
+      PatternKind Kind = classifyPattern(Pat);
+      bool HasGuard = (I < Guards.size() && Guards[I].isUsable() &&
+                       Guards[I].get() != nullptr);
+
+      // Wildcard with guard: can't guarantee coverage, skip
+      if (Kind == PatternKind::Wildcard && HasGuard)
+        continue;
+
+      // Wildcard without guard: covers everything
+      if (Kind == PatternKind::Wildcard && !HasGuard) {
+        // All covered
+        return;
+      }
+
+      // Literal pattern: check if it's one of the enum constants
+      if (Kind == PatternKind::Literal) {
+        if (auto *DRE = dyn_cast<DeclRefExpr>(Pat)) {
+          if (auto *ECD = dyn_cast<EnumConstantDecl>(DRE->getDecl())) {
+            CoveredEnums.insert(ECD);
+          }
+        } else if (auto *ME = dyn_cast<MemberExpr>(Pat)) {
+          if (auto *ECD = dyn_cast<EnumConstantDecl>(ME->getMemberDecl())) {
+            CoveredEnums.insert(ECD);
+          }
+        } else {
+          // Integer literal or other constant — match by value
+          if (Pat->isIntegerConstantExpr(Context)) {
+            llvm::APSInt Value = Pat->EvaluateKnownConstInt(Context);
+            for (const auto *ECD : Enumerators) {
+              if (ECD->getInitVal() == Value)
+                CoveredEnums.insert(ECD);
+            }
+          }
+        }
+      }
+
+      // TypePattern: doesn't cover specific enum values
+      // Destructuring: doesn't apply to enum types directly
+    }
+
+    // Check for uncovered enumerators
+    SmallVector<const EnumConstantDecl *, 8> Uncovered;
+    for (const auto *ECD : Enumerators) {
+      if (!CoveredEnums.count(ECD))
+        Uncovered.push_back(ECD);
+    }
+
+    if (!Uncovered.empty()) {
+      Diag(MatchLoc, diag::warn_non_exhaustive_match)
+          << ScrutineeType;
+      for (const auto *ECD : Uncovered) {
+        Diag(ECD->getLocation(), diag::note_uncovered_enum_value)
+            << ECD;
+      }
+    }
+
+    return;
+  }
+
+  // For bool type, check both true and false are covered
+  if (ScrutineeType->isBooleanType()) {
+    if (HasWildcardWithoutGuard)
+      return;
+
+    bool TrueCovered = false, FalseCovered = false;
+
+    for (unsigned I = 0; I < Patterns.size(); ++I) {
+      Expr *Pat = Patterns[I].get();
+      if (!Pat)
+        continue;
+
+      PatternKind Kind = classifyPattern(Pat);
+      bool HasGuard = (I < Guards.size() && Guards[I].isUsable() &&
+                       Guards[I].get() != nullptr);
+
+      if (Kind == PatternKind::Wildcard && !HasGuard) {
+        TrueCovered = true;
+        FalseCovered = true;
+        break;
+      }
+
+      if (Kind == PatternKind::Wildcard && HasGuard)
+        continue; // can't guarantee coverage
+
+      if (Kind == PatternKind::Literal) {
+        // CXXBoolLiteralExpr
+        if (auto *BoolLit = dyn_cast<CXXBoolLiteralExpr>(Pat)) {
+          if (BoolLit->getValue())
+            TrueCovered = true;
+          else
+            FalseCovered = true;
+        } else {
+          // Integer constant expression — 0 is false, nonzero is true
+          if (Pat->isIntegerConstantExpr(Context)) {
+            llvm::APSInt Value = Pat->EvaluateKnownConstInt(Context);
+            if (Value.getBoolValue())
+              TrueCovered = true;
+            else
+              FalseCovered = true;
+          }
+        }
+      }
+    }
+
+    if (!TrueCovered || !FalseCovered) {
+      Diag(MatchLoc, diag::warn_non_exhaustive_match) << ScrutineeType;
+    }
+
+    return;
+  }
+
+  // For integral types with no wildcard, warn that match may be non-exhaustive
+  // (we can't enumerate all values, but if there's no wildcard, it's likely
+  // incomplete)
+  if (ScrutineeType->isIntegralOrEnumerationType() && !HasWildcardWithoutGuard) {
+    // Only warn if there are only literal patterns and no wildcard
+    bool AllLiteral = true;
+    for (unsigned I = 0; I < Patterns.size(); ++I) {
+      Expr *Pat = Patterns[I].get();
+      if (!Pat)
+        continue;
+      PatternKind Kind = classifyPattern(Pat);
+      bool HasGuard = (I < Guards.size() && Guards[I].isUsable() &&
+                       Guards[I].get() != nullptr);
+      if (Kind == PatternKind::Wildcard && !HasGuard) {
+        AllLiteral = false;
+        break;
+      }
+      if (Kind != PatternKind::Literal && Kind != PatternKind::Unknown) {
+        AllLiteral = false;
+        break;
+      }
+    }
+    if (AllLiteral && !Patterns.empty()) {
+      Diag(MatchLoc, diag::warn_non_exhaustive_match) << ScrutineeType;
+    }
+  }
 }
 
 //===----------------------------------------------------------------------===//

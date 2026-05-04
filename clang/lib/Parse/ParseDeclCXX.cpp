@@ -4706,7 +4706,7 @@ void Parser::ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
       Attrs.addNew(AttrName, SourceRange(AttrLoc, Condition.get()->getEndLoc()),
                    AttributeScopeInfo(), ContractArgs.data(),
                    ContractArgs.size(),
-                   ParsedAttr::Form::CXX11());
+                   ParsedAttr::Form::GNU());
       AttrParsed = true;
 
       if (TryConsumeToken(tok::ellipsis))

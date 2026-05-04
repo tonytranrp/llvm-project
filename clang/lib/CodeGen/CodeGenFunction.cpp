@@ -421,6 +421,20 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // Emit function epilog (to return).
   llvm::DebugLoc Loc = EmitReturnBlock();
 
+  // Emit postcondition checks from [[post]]/post() attributes.
+  // This is placed after EmitReturnBlock() so all return paths converge here
+  // before the actual ret instruction. This ensures postconditions are checked
+  // on every exit path, including explicit return statements and fall-through.
+  if (CurCodeDecl && getLangOpts().Contracts) {
+    if (auto *FD = dyn_cast_or_null<FunctionDecl>(CurCodeDecl)) {
+      for (const auto *PA : FD->specific_attrs<PostAttr>()) {
+        if (Expr *Cond = PA->getCondition()) {
+          EmitContractCheck(Cond, "postcondition", PA->getMessage());
+        }
+      }
+    }
+  }
+
   if (ShouldInstrumentFunction()) {
     if (CGM.getCodeGenOpts().InstrumentFunctions)
       CurFn->addFnAttr("instrument-function-exit", "__cyg_profile_func_exit");
@@ -1375,6 +1389,76 @@ void CodeGenFunction::EmitFunctionBody(const Stmt *Body) {
     EmitStmt(Body);
 }
 
+void CodeGenFunction::EmitContractCheck(const Expr *Cond, StringRef Category,
+                                         const Expr *Message) {
+  // Emit: if (!Cond) __builtin_verbose_trap(Category, Message)
+  // or:   if (!Cond) __builtin_trap()
+  //
+  // This mirrors what Sema does for contract_assert/pre/post statements
+  // (ActOnContractAssertStmt), but at the CodeGen level.
+
+  if (!Cond)
+    return;
+
+  // Evaluate the condition
+  llvm::Value *CondVal = EvaluateExprAsBool(Cond);
+  if (!CondVal)
+    return;
+
+  // Create blocks for the conditional
+  llvm::BasicBlock *TrapBB = createBasicBlock("contract.trap");
+  llvm::BasicBlock *ContBB = createBasicBlock("contract.cont");
+
+  // Branch: if (!Cond) goto TrapBB else goto ContBB
+  Builder.CreateCondBr(CondVal, ContBB, TrapBB);
+
+  // TrapBB: emit trap call
+  EmitBlock(TrapBB);
+  if (Message) {
+    // Emit __builtin_verbose_trap(Category, Message)
+    // Get or declare the __builtin_verbose_trap function
+    llvm::FunctionType *TrapTy = llvm::FunctionType::get(
+        CGM.VoidTy, {CGM.Int8PtrTy, CGM.Int8PtrTy}, false);
+    llvm::FunctionCallee TrapFn =
+        CGM.CreateRuntimeFunction(TrapTy, "__builtin_verbose_trap");
+
+    // Create the category string constant
+    llvm::Constant *CategoryConst =
+        llvm::ConstantDataArray::getString(getLLVMContext(), Category);
+    auto *CategoryGV = new llvm::GlobalVariable(
+        CGM.getModule(), CategoryConst->getType(),
+        true, llvm::GlobalValue::PrivateLinkage,
+        CategoryConst, "contract.category");
+    CategoryGV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    llvm::Value *CategoryPtr = Builder.CreateInBoundsGEP(
+        CategoryGV->getValueType(), CategoryGV,
+        {Builder.getInt32(0), Builder.getInt32(0)});
+
+    // Create the message string constant
+    llvm::Value *MessagePtr = llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
+    if (auto *SL = dyn_cast<StringLiteral>(Message)) {
+      llvm::Constant *MsgConst = CGM.GetConstantArrayFromStringLiteral(SL);
+      auto *MsgGV = new llvm::GlobalVariable(
+          CGM.getModule(), MsgConst->getType(),
+          true, llvm::GlobalValue::PrivateLinkage,
+          MsgConst, "contract.message");
+      MsgGV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+      MessagePtr = Builder.CreateInBoundsGEP(
+          MsgGV->getValueType(), MsgGV,
+          {Builder.getInt32(0), Builder.getInt32(0)});
+    }
+
+    Builder.CreateCall(TrapFn, {CategoryPtr, MessagePtr});
+  } else {
+    // Emit __builtin_trap() — simple trap with no message
+    EmitTrapCall(llvm::Intrinsic::trap);
+  }
+  Builder.CreateUnreachable();
+
+  // Continue block
+  EmitBlock(ContBB);
+}
+
 /// When instrumenting to collect profile data, the counts for some blocks
 /// such as switch cases need to not include the fall-through counts, so
 /// emit a branch around the instrumentation code. When not instrumenting,
@@ -1553,6 +1637,17 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
 
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
+
+  // Emit precondition checks from [[pre]]/pre() attributes at function entry.
+  if (FD && getLangOpts().Contracts) {
+    for (const auto *PA : FD->specific_attrs<PreAttr>()) {
+      if (Expr *Cond = PA->getCondition()) {
+        // Emit: if (!cond) __builtin_verbose_trap("precondition", msg)
+        // or:   if (!cond) __builtin_trap()
+        EmitContractCheck(Cond, "precondition", PA->getMessage());
+      }
+    }
+  }
 
   // Save parameters for coroutine function.
   if (Body && isa_and_nonnull<CoroutineBodyStmt>(Body))
