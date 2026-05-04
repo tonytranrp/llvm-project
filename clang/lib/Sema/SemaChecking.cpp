@@ -3956,6 +3956,20 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
         return ActOnCXXBoolLiteral(TheCall->getExprLoc(),
                                     IsType ? tok::kw_true : tok::kw_false);
       }
+      // Try to trace through a DeclRefExpr to find the initializer.
+      // If the variable was initialized from a CXXReflectExpr, we can fold.
+      if (auto *DRE = dyn_cast<DeclRefExpr>(Arg)) {
+        if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+          if (VD->hasInit()) {
+            Expr *Init = VD->getInit()->IgnoreParenImpCasts();
+            if (auto *RE = dyn_cast<CXXReflectExpr>(Init)) {
+              bool IsType = RE->getReflectionKind() == CXXReflectExpr::RK_Type;
+              return ActOnCXXBoolLiteral(TheCall->getExprLoc(),
+                                          IsType ? tok::kw_true : tok::kw_false);
+            }
+          }
+        }
+      }
     }
     break;
   }

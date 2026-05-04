@@ -12906,6 +12906,24 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
 
   QualType LHSType = LHS.get()->getType();
   QualType RHSType = RHS.get()->getType();
+
+  // C++26 Reflection: Allow comparison of std::meta::info values (==, !=, <, >, etc.)
+  // Both operands must be MetaInfoTy (std::meta::info). The result is bool for
+  // equality/relational comparisons.
+  if (getLangOpts().Reflection && !Context.MetaInfoTy.isNull()) {
+    QualType MetaInfoTy = Context.MetaInfoTy;
+    if (Context.hasSameUnqualifiedType(LHSType, MetaInfoTy) &&
+        Context.hasSameUnqualifiedType(RHSType, MetaInfoTy)) {
+      // Reflection value comparison: compare the underlying i64 representation.
+      // For equality/inequality, this directly compares the encoded values.
+      // For relational ops, compare the hash values (not semantically meaningful
+      // but allows ordered containers).
+      if (BinaryOperator::isEqualityOp(Opc) || IsRelational || IsThreeWay) {
+        return Context.BoolTy;
+      }
+    }
+  }
+
   if ((LHSType->isArithmeticType() || LHSType->isEnumeralType()) &&
       (RHSType->isArithmeticType() || RHSType->isEnumeralType()))
     return checkArithmeticOrEnumeralCompare(*this, LHS, RHS, Loc, Opc);

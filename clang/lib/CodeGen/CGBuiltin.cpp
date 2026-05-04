@@ -4029,9 +4029,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   }
   // C++26 Reflection metafunctions (P2996)
   case Builtin::BI__builtin_meta_is_type: {
-    // Already folded to bool literal in Sema. If we reach here,
-    // the argument was not a CXXReflectExpr — emit i1 false as safe default.
-    return RValue::get(llvm::ConstantInt::get(Builder.getInt1Ty(), 0));
+    // If Sema didn't fold this (argument is a variable, not direct ^^expr),
+    // do a runtime check: extract the tag from the encoded i64 value.
+    // Tag 0 = RK_Type. Check if (value >> 60) == 0.
+    llvm::Value *Arg = EmitScalarExpr(E->getArg(0));
+    llvm::Value *Shifted = Builder.CreateLShr(Arg, 60);
+    llvm::Value *IsTypeTag = Builder.CreateICmpEQ(Shifted, Builder.getInt64(0));
+    return RValue::get(IsTypeTag);
   }
   case Builtin::BI__builtin_meta_type_of: {
     // MVP: return the argument as i64 (the reflection value itself)
@@ -4039,22 +4043,83 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(Arg);
   }
   case Builtin::BI__builtin_meta_identifier_of: {
-    // MVP: return 0 as i64 placeholder (name not yet extractable at runtime)
+    // Return a hash of the reflected entity's identifier name as i64.
+    // Try to resolve through DeclRefExpr to find the initializer.
+    const Expr *Arg = E->getArg(0)->IgnoreParenImpCasts();
+    const CXXReflectExpr *RE = dyn_cast<CXXReflectExpr>(Arg);
+
+    if (!RE) {
+      if (auto *DRE = dyn_cast<DeclRefExpr>(Arg)) {
+        if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+          if (VD->hasInit()) {
+            RE = dyn_cast<CXXReflectExpr>(VD->getInit()->IgnoreParenImpCasts());
+          }
+        }
+      }
+    }
+
+    if (RE) {
+      std::string Name;
+      switch (RE->getReflectionKind()) {
+      case CXXReflectExpr::RK_Type: {
+        if (auto *TSI = RE->getTypeOperand())
+          Name = TSI->getType().getCanonicalType().getAsString();
+        break;
+      }
+      case CXXReflectExpr::RK_Declaration: {
+        if (auto *D = RE->getDeclarationOperand())
+          Name = D->getDeclName().getAsString();
+        break;
+      }
+      case CXXReflectExpr::RK_Namespace: {
+        if (auto *NS = RE->getNamespaceOperand())
+          Name = NS->getDeclName().getAsString();
+        break;
+      }
+      case CXXReflectExpr::RK_GlobalNamespace:
+        Name = "";
+        break;
+      case CXXReflectExpr::RK_Template: {
+        if (auto *TD = RE->getTemplateOperand())
+          Name = TD->getDeclName().getAsString();
+        break;
+      }
+      }
+      if (!Name.empty()) {
+        uint64_t Hash = 0;
+        for (char C : Name)
+          Hash = Hash * 131 + static_cast<unsigned char>(C);
+        return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), Hash));
+      }
+    }
+    // Fallback: return 0
     return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), 0));
   }
   case Builtin::BI__builtin_meta_members_of: {
-    // MVP: count the fields of the reflected struct and return as i64
-    // If the argument is a CXXReflectExpr with RK_Type, try to get the RecordDecl
+    // Count the fields of the reflected struct and return as i64.
+    // Try to resolve through DeclRefExpr to find the initializer.
     const Expr *Arg = E->getArg(0)->IgnoreParenImpCasts();
-    if (auto *RE = dyn_cast<CXXReflectExpr>(Arg)) {
-      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
-        if (auto *TSI = RE->getTypeOperand()) {
-          QualType QT = TSI->getType();
-          if (auto *RD = QT->getAsCXXRecordDecl()) {
-            unsigned Count = 0;
-            for (auto *F : RD->fields()) { (void)F; ++Count; }
-            return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), Count));
+    const CXXReflectExpr *RE = dyn_cast<CXXReflectExpr>(Arg);
+
+    // If not a direct CXXReflectExpr, try to trace through a DeclRefExpr
+    // to find the variable's initializer.
+    if (!RE) {
+      if (auto *DRE = dyn_cast<DeclRefExpr>(Arg)) {
+        if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+          if (VD->hasInit()) {
+            RE = dyn_cast<CXXReflectExpr>(VD->getInit()->IgnoreParenImpCasts());
           }
+        }
+      }
+    }
+
+    if (RE && RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+      if (auto *TSI = RE->getTypeOperand()) {
+        QualType QT = TSI->getType();
+        if (auto *RD = QT->getAsCXXRecordDecl()) {
+          unsigned Count = 0;
+          for (auto *F : RD->fields()) { (void)F; ++Count; }
+          return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), Count));
         }
       }
     }

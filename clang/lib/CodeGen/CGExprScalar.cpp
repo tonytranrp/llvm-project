@@ -827,19 +827,25 @@ public:
   }
 
   Value *VisitCXXReflectExpr(const CXXReflectExpr *E) {
-    // Reflection values are emitted as opaque i64 constants.
-    // We assign stable-ish values based on kind and entity identity.
+    // Reflection values are emitted as opaque i64 constants with an encoded
+    // tag in the top 4 bits identifying the ReflectionKind:
+    //   Bits 60-63: ReflectionKind tag (0=Type, 1=Decl, 2=Namespace, 3=GlobalNS, 4=Template)
+    //   Bits  0-59: Hash of the entity identity
+    // This allows runtime extraction of the kind from stored reflection values.
+    auto makeTagged = [](uint64_t Kind, uint64_t Hash) -> uint64_t {
+      return (Kind << 60) | (Hash & 0x0FFFFFFFFFFFFFFFULL);
+    };
+
     switch (E->getReflectionKind()) {
     case CXXReflectExpr::RK_Type: {
-      // Use a hash of the type's canonical name as the reflection value
       if (auto *TSI = E->getTypeOperand()) {
         auto Name = TSI->getType().getCanonicalType().getAsString();
         uint64_t Hash = 0;
         for (char C : Name)
           Hash = Hash * 131 + static_cast<unsigned char>(C);
-        return Builder.getInt64(Hash);
+        return Builder.getInt64(makeTagged(0, Hash));
       }
-      return Builder.getInt64(0);
+      return Builder.getInt64(makeTagged(0, 0));
     }
     case CXXReflectExpr::RK_Declaration: {
       if (auto *D = E->getDeclarationOperand()) {
@@ -847,9 +853,9 @@ public:
         uint64_t Hash = 0;
         for (char C : Name)
           Hash = Hash * 131 + static_cast<unsigned char>(C);
-        return Builder.getInt64(Hash);
+        return Builder.getInt64(makeTagged(1, Hash));
       }
-      return Builder.getInt64(1);
+      return Builder.getInt64(makeTagged(1, 0));
     }
     case CXXReflectExpr::RK_Namespace: {
       if (auto *NS = E->getNamespaceOperand()) {
@@ -857,21 +863,21 @@ public:
         uint64_t Hash = 0;
         for (char C : Name)
           Hash = Hash * 131 + static_cast<unsigned char>(C);
-        return Builder.getInt64(Hash | 0x8000000000000000ULL);
+        return Builder.getInt64(makeTagged(2, Hash));
       }
-      return Builder.getInt64(2);
+      return Builder.getInt64(makeTagged(2, 0));
     }
     case CXXReflectExpr::RK_GlobalNamespace:
-      return Builder.getInt64(0x8000000000000000ULL);
+      return Builder.getInt64(makeTagged(3, 0));
     case CXXReflectExpr::RK_Template: {
       if (auto *TD = E->getTemplateOperand()) {
         auto Name = TD->getQualifiedNameAsString();
         uint64_t Hash = 0;
         for (char C : Name)
           Hash = Hash * 131 + static_cast<unsigned char>(C);
-        return Builder.getInt64(Hash | 0x4000000000000000ULL);
+        return Builder.getInt64(makeTagged(4, Hash));
       }
-      return Builder.getInt64(3);
+      return Builder.getInt64(makeTagged(4, 0));
     }
     }
     return Builder.getInt64(0);
@@ -884,16 +890,22 @@ public:
 
     switch (E->getMetafunctionKind()) {
     case CXXReflectionMetafunctionExpr::MK_IsType: {
-      // MVP: if the argument is a CXXReflectExpr, check its kind at
-      // compile time. Otherwise, emit a runtime check placeholder (true).
-      // For the MVP, we check if the sub-expression is a CXXReflectExpr
-      // and return whether it reflects a type.
+      // If the argument is a direct CXXReflectExpr, fold at compile time.
       if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
         return Builder.getInt1(Reflect->getReflectionKind() ==
                                CXXReflectExpr::RK_Type);
       }
-      // Runtime fallback: assume true (placeholder)
-      return Builder.getInt1(true);
+      // Runtime check: extract the tag from the encoded i64 value.
+      // Tag 0 = RK_Type. Check if (value >> 60) == 0.
+      if (ArgVal) {
+        // Shift right by 60 to get the kind tag in the low 4 bits
+        Value *Shifted = Builder.CreateLShr(ArgVal, 60);
+        Value *TagZero = Builder.getInt64(0);
+        Value *IsTypeTag = Builder.CreateICmpEQ(Shifted, TagZero);
+        return IsTypeTag;
+      }
+      // Fallback: assume false
+      return Builder.getInt1(false);
     }
     case CXXReflectionMetafunctionExpr::MK_TypeOf: {
       // MVP: just pass through the reflection value
