@@ -12,6 +12,142 @@
 
 using namespace clang;
 
+/// ParsePattern - Parse a single pattern inside a match expression.
+/// Supported patterns:
+///   - _ (wildcard)
+///   - ?type (type pattern — match if scrutinee is of that type)
+///   - auto [x, y, ...] (binding destructuring pattern)
+///   - expression (literal pattern, matched with ==)
+///   - [pattern, pattern, ...] (destructuring pattern)
+ExprResult Parser::ParsePattern() {
+  // Wildcard pattern: _
+  if (Tok.is(tok::identifier) && Tok.getIdentifierInfo()->isStr("_")) {
+    SourceLocation UnderscoreLoc = ConsumeToken();
+    return Actions.ActOnWildcardPattern(UnderscoreLoc);
+  }
+
+  // Type pattern: ?type — match if scrutinee is of that type
+  if (Tok.is(tok::question) && getLangOpts().PatternMatching) {
+    return ParseTypePattern();
+  }
+
+  // Binding destructuring pattern: auto [x, y, ...]
+  if (Tok.is(tok::kw_auto) && getLangOpts().PatternMatching) {
+    // Look ahead to see if next token is [
+    Token Next = NextToken();
+    if (Next.is(tok::l_square)) {
+      return ParseBindingPattern();
+    }
+    // Otherwise fall through to expression parsing (auto as type in expr)
+  }
+
+  // Destructuring pattern: [pattern, pattern, ...]
+  if (Tok.is(tok::l_square)) {
+    return ParseDestructuringPattern();
+  }
+
+  // Expression pattern (fallback)
+  return ParseConditionalExpression();
+}
+
+/// ParseDestructuringPattern - Parse a destructuring pattern: [p1, p2, ...]
+/// Lowered to: p1 && p2 && ... (each sub-pattern is already a boolean)
+ExprResult Parser::ParseDestructuringPattern() {
+  assert(Tok.is(tok::l_square) && "Expected [ for destructuring pattern");
+  SourceLocation LSquareLoc = ConsumeToken(); // consume [
+
+  SmallVector<ExprResult, 4> SubPatterns;
+
+  // Parse comma-separated sub-patterns
+  while (Tok.isNot(tok::r_square) && Tok.isNot(tok::eof)) {
+    ExprResult SubPattern = ParsePattern();
+    if (SubPattern.isInvalid()) {
+      SkipUntil(tok::r_square, StopBeforeMatch);
+      return ExprError();
+    }
+    SubPatterns.push_back(SubPattern);
+
+    if (Tok.is(tok::comma))
+      ConsumeToken(); // consume ,
+    else
+      break;
+  }
+
+  if (!Tok.is(tok::r_square)) {
+    Diag(Tok, diag::err_expected) << tok::r_square;
+    return ExprError();
+  }
+  SourceLocation RSquareLoc = ConsumeToken(); // consume ]
+
+  return Actions.ActOnDestructuringPattern(LSquareLoc, SubPatterns,
+                                            RSquareLoc);
+}
+
+/// ParseTypePattern - Parse a type pattern: ?type
+/// match(x) { ?int => 1, ?double => 2, _ => 0 }
+ExprResult Parser::ParseTypePattern() {
+  assert(Tok.is(tok::question) && "Expected ? for type pattern");
+  SourceLocation QuestionLoc = ConsumeToken(); // consume ?
+
+  // Parse the type after ?
+  TypeResult TR = ParseTypeName();
+  if (TR.isInvalid())
+    return ExprError();
+
+  TypeSourceInfo *TSI = nullptr;
+  QualType QT = Actions.GetTypeFromParser(TR.get(), &TSI);
+  if (QT.isNull())
+    return ExprError();
+  if (!TSI)
+    TSI = Actions.getASTContext().getTrivialTypeSourceInfo(QT, QuestionLoc);
+
+  return Actions.ActOnTypePattern(QuestionLoc, TSI, QuestionLoc);
+}
+
+/// ParseBindingPattern - Parse a binding destructuring pattern: auto [x, y, ...]
+/// Binds identifiers to tuple/struct elements of the scrutinee.
+ExprResult Parser::ParseBindingPattern() {
+  assert(Tok.is(tok::kw_auto) && "Expected 'auto' for binding pattern");
+  SourceLocation AutoLoc = ConsumeToken(); // consume 'auto'
+
+  if (!Tok.is(tok::l_square)) {
+    Diag(Tok, diag::err_expected) << tok::l_square;
+    return ExprError();
+  }
+  SourceLocation LSquareLoc = ConsumeToken(); // consume [
+
+  SmallVector<IdentifierInfo *, 4> Bindings;
+  SmallVector<SourceLocation, 4> BindingLocs;
+
+  // Parse comma-separated identifiers
+  while (Tok.isNot(tok::r_square) && Tok.isNot(tok::eof)) {
+    if (!Tok.is(tok::identifier)) {
+      Diag(Tok, diag::err_expected) << "identifier";
+      SkipUntil(tok::r_square, StopBeforeMatch);
+      return ExprError();
+    }
+    IdentifierInfo *II = Tok.getIdentifierInfo();
+    SourceLocation IdLoc = ConsumeToken();
+    Bindings.push_back(II);
+    BindingLocs.push_back(IdLoc);
+
+    if (Tok.is(tok::comma))
+      ConsumeToken(); // consume ,
+    else
+      break;
+  }
+
+  if (!Tok.is(tok::r_square)) {
+    Diag(Tok, diag::err_expected) << tok::r_square;
+    return ExprError();
+  }
+  SourceLocation RSquareLoc = ConsumeToken(); // consume ]
+
+  return Actions.ActOnBindingPattern(AutoLoc, LSquareLoc, Bindings,
+                                      BindingLocs, RSquareLoc,
+                                      MatchScrutinee);
+}
+
 /// ParseMatchExpression - Parse a match expression:
 ///   match(expr) { pattern => expr, ... }
 ExprResult Parser::ParseMatchExpression() {
@@ -31,6 +167,9 @@ ExprResult Parser::ParseMatchExpression() {
   T.consumeClose();
   SourceLocation RParenLoc = T.getCloseLocation();
 
+  // Store scrutinee for binding pattern access
+  MatchScrutinee = Scrutinee.get();
+
   BalancedDelimiterTracker BraceT(*this, tok::l_brace);
   if (BraceT.expectAndConsume())
     return ExprError();
@@ -44,33 +183,14 @@ ExprResult Parser::ParseMatchExpression() {
 
   // Parse pattern => expr pairs
   while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
-    // Parse a pattern:
-    //  - _ (wildcard)
-    //  - identifier (binding)
-    //  - expression followed by =>
-    //  - expression if guard followed by =>
-    ExprResult Pattern;
-    ExprResult Guard;
-
-    // Special case: wildcard _
-    if (Tok.is(tok::identifier) && Tok.getIdentifierInfo()->isStr("_")) {
-      SourceLocation UnderscoreLoc = ConsumeToken();
-      Pattern = Actions.ActOnWildcardPattern(UnderscoreLoc);
-    } else {
-      // Parse expression that will be matched against the scrutinee.
-      // This handles literal patterns, type patterns, etc.
-      // We use ParseConstantExpression to avoid consuming => as part of
-      // the expression.
-      Pattern = ParseConditionalExpression();
-    }
-
+    ExprResult Pattern = ParsePattern();
     if (Pattern.isInvalid()) {
       SkipUntil(tok::r_brace, StopBeforeMatch);
       break;
     }
 
     // Parse optional guard: if condition
-    // The guard is combined with the pattern condition: (scrutinee == pattern) && guard
+    ExprResult Guard;
     if (Tok.is(tok::kw_if)) {
       ConsumeToken(); // consume 'if'
       Guard = ParseAssignmentExpression();
@@ -107,6 +227,9 @@ ExprResult Parser::ParseMatchExpression() {
 
   BraceT.consumeClose();
   SourceLocation RBraceLoc = BraceT.getCloseLocation();
+
+  // Clear scrutinee pointer
+  MatchScrutinee = nullptr;
 
   return Actions.ActOnMatchExpr(MatchLoc, RParenLoc, LBraceLoc, RBraceLoc,
                                 Scrutinee.get(), Patterns, ArrowLocs, Results,

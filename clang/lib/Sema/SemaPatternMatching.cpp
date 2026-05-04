@@ -8,11 +8,12 @@
 //
 //  This file implements semantic analysis for C++ pattern matching and
 //  contracts extensions. For the MVP, match expressions are lowered to
-//  conditional expressions and contract_assert to if-then-trap.
+//  conditional expressions and contract_assert/pre/post to if-then-trap.
 //
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/Sema.h"
+#include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/Specifiers.h"
@@ -31,6 +32,147 @@ ExprResult Sema::ActOnIdentifierPattern(SourceLocation IdLoc,
                                         IdentifierInfo *II) {
   // TODO(Tier 2): Create a proper binding pattern that introduces a variable.
   return ActOnCXXBoolLiteral(IdLoc, tok::kw_true);
+}
+
+ExprResult Sema::ActOnBindingPattern(
+    SourceLocation AutoLoc, SourceLocation LSquareLoc,
+    SmallVectorImpl<IdentifierInfo *> &Bindings,
+    SmallVectorImpl<SourceLocation> &BindingLocs,
+    SourceLocation RSquareLoc, Expr *Scrutinee) {
+  // auto [x, y, ...] binding destructuring pattern.
+  // Creates VarDecls for each binding name and generates assignment expressions
+  // that bind them to the scrutinee. The pattern condition is a comma-operator
+  // chain: (x = scrutinee, y = scrutinee, ..., true)
+  // For the MVP, each binding is assigned the full scrutinee.
+  // Proper element extraction (std::get<N>) is deferred to a future tier.
+
+  if (Bindings.empty()) {
+    return ActOnCXXBoolLiteral(LSquareLoc, tok::kw_true);
+  }
+
+  SmallVector<VarDecl *, 4> BindingDecls;
+
+  // Create a VarDecl for each binding identifier (no initializer — will be
+  // assigned in the comma-operator chain).
+  for (unsigned I = 0; I < Bindings.size(); ++I) {
+    IdentifierInfo *II = Bindings[I];
+    SourceLocation IdLoc = BindingLocs[I];
+
+    QualType VarType;
+    if (Scrutinee && !Scrutinee->isTypeDependent()) {
+      VarType = Scrutinee->getType();
+    } else {
+      VarType = Context.getAutoDeductType();
+    }
+
+    VarDecl *VD = VarDecl::Create(Context, getCurScope()->getEntity(),
+                                   IdLoc, IdLoc, II, VarType,
+                                   /*TInfo=*/nullptr, SC_Auto);
+    // No initializer — assignments happen in the comma-operator chain
+
+    // Mark as used so we don't get warnings
+    VD->setIsUsed();
+
+    // Push the declaration into scope
+    PushOnScopeChains(VD, getCurScope(), /*AddToContext=*/true);
+
+    BindingDecls.push_back(VD);
+  }
+
+  // Build the comma-operator chain: (x = scrutinee, y = scrutinee, ..., true)
+  // Each assignment initializes the binding variable from the scrutinee.
+  ExprResult Condition;
+
+  if (Scrutinee && !Scrutinee->isTypeDependent()) {
+    for (unsigned I = 0; I < BindingDecls.size(); ++I) {
+      VarDecl *VD = BindingDecls[I];
+
+      // Create a DeclRefExpr for the variable
+      Expr *DRE = BuildDeclRefExpr(VD, VD->getType(), VK_PRValue, VD->getLocation());
+
+      // Build: var = scrutinee
+      ExprResult Assign = BuildBinOp(getCurScope(), VD->getLocation(),
+                                      BinaryOperatorKind::BO_Assign, DRE, Scrutinee);
+      if (Assign.isInvalid()) {
+        PendingBinding.Active = false;
+        return ActOnCXXBoolLiteral(AutoLoc, tok::kw_true);
+      }
+
+      if (I == 0) {
+        Condition = Assign;
+      } else {
+        // Comma operator: (prev, assign)
+        Condition = BuildBinOp(getCurScope(), VD->getLocation(),
+                                BinaryOperatorKind::BO_Comma,
+                                Condition.get(), Assign.get());
+        if (Condition.isInvalid()) {
+          PendingBinding.Active = false;
+          return ActOnCXXBoolLiteral(AutoLoc, tok::kw_true);
+        }
+      }
+    }
+
+    // Append true: (..., true)
+    ExprResult TrueExpr = ActOnCXXBoolLiteral(AutoLoc, tok::kw_true);
+    Condition = BuildBinOp(getCurScope(), AutoLoc,
+                            BinaryOperatorKind::BO_Comma,
+                            Condition.get(), TrueExpr.get());
+    if (Condition.isInvalid()) {
+      PendingBinding.Active = false;
+      return ActOnCXXBoolLiteral(AutoLoc, tok::kw_true);
+    }
+  } else {
+    // Dependent case: just return true
+    Condition = ActOnCXXBoolLiteral(AutoLoc, tok::kw_true);
+  }
+
+  // Clear pending binding info
+  PendingBinding.Active = false;
+
+  return Condition;
+}
+
+ExprResult Sema::ActOnDestructuringPattern(
+    SourceLocation LSquareLoc, SmallVectorImpl<ExprResult> &SubPatterns,
+    SourceLocation RSquareLoc) {
+  // Lower [p1, p2, p3] into: p1 && p2 && p3
+  // Each sub-pattern is already lowered to a boolean condition.
+  // Wildcards become true, literals become scrutinee==literal, etc.
+
+  if (SubPatterns.empty()) {
+    return ActOnCXXBoolLiteral(LSquareLoc, tok::kw_true);
+  }
+
+  ExprResult Result = SubPatterns[0];
+  for (unsigned I = 1; I < SubPatterns.size(); ++I) {
+    if (Result.isInvalid() || SubPatterns[I].isInvalid())
+      return ExprError();
+
+    Expr *LHS = Result.get();
+    Expr *RHS = SubPatterns[I].get();
+
+    if (!LHS || !RHS)
+      return ExprError();
+
+    if (LHS->isTypeDependent() || RHS->isTypeDependent())
+      return Result;
+
+    Result = BuildBinOp(getCurScope(), LHS->getExprLoc(),
+                        BinaryOperatorKind::BO_LAnd, LHS, RHS);
+    if (Result.isInvalid())
+      return ExprError();
+  }
+
+  return Result;
+}
+
+ExprResult Sema::ActOnTypePattern(SourceLocation QuestionLoc,
+                                   TypeSourceInfo *TSI,
+                                   SourceLocation EndLoc) {
+  // Type pattern: ?type — match if scrutinee is of that type.
+  // For the MVP, we lower this to `true` (always matches).
+  // TODO(Tier 2): Store the type info and generate __builtin_types_compatible_p
+  return ActOnCXXBoolLiteral(QuestionLoc, tok::kw_true);
 }
 
 ExprResult Sema::ActOnMatchExpr(SourceLocation MatchLoc,
@@ -68,8 +210,15 @@ ExprResult Sema::ActOnMatchExpr(SourceLocation MatchLoc,
 
     ExprResult Condition;
     if (Pattern->getType()->isBooleanType() &&
-        isa<CXXBoolLiteralExpr>(Pattern)) {
-      // Wildcard pattern (lowered to `true`) — use directly.
+        (isa<CXXBoolLiteralExpr>(Pattern) ||
+         // Binding patterns produce comma-operator chains ending in true.
+         // Check if this is a BinaryOperator with BO_Comma whose RHS is true.
+         (isa<BinaryOperator>(Pattern) &&
+          cast<BinaryOperator>(Pattern)->isCommaOp() &&
+          isa<CXXBoolLiteralExpr>(cast<BinaryOperator>(Pattern)->getRHS()) &&
+          cast<CXXBoolLiteralExpr>(cast<BinaryOperator>(Pattern)->getRHS())->getValue()))) {
+      // Wildcard/type/destructuring/binding pattern (lowered to `true` or
+      // a comma-chain ending in `true`) — use directly as condition.
       Condition = Pattern;
     } else {
       // Build: scrutinee == pattern
@@ -125,9 +274,7 @@ StmtResult Sema::ActOnContractAssertStmt(SourceLocation Loc, Expr *Condition,
     Condition = CondRes.get();
   }
 
-  // Lower contract_assert(condition) to: if (!(condition)) __builtin_trap();
-  // This provides runtime contract checking — if the condition is false,
-  // the program traps immediately (SIGILL on most platforms).
+  // Lower contract_assert/pre/post(condition) to: if (!(condition)) __builtin_trap();
 
   // Step 1: Build !(condition)
   ExprResult NegatedCond = ActOnUnaryOp(getCurScope(), Loc, tok::exclaim, Condition);

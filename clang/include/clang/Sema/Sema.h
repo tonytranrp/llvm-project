@@ -14960,6 +14960,17 @@ public:
                                     SourceLocation RSquareLoc);
 
   // Pattern matching Sema actions
+
+  // Side channel for binding pattern info: when ActOnBindingPattern is called,
+  // it stores the binding identifiers here. ActOnMatchExpr consumes them to
+  // create VarDecls with the scrutinee as initializer.
+  struct PendingBindingInfo {
+    SmallVector<IdentifierInfo *, 4> Bindings;
+    SmallVector<SourceLocation, 4> BindingLocs;
+    SourceLocation AutoLoc;
+    bool Active = false;
+  } PendingBinding;
+
   ExprResult ActOnMatchExpr(SourceLocation MatchLoc, SourceLocation RParenLoc,
                             SourceLocation LBraceLoc, SourceLocation RBraceLoc,
                             Expr *Scrutinee,
@@ -14969,6 +14980,17 @@ public:
                             SmallVectorImpl<ExprResult> &Guards);
   ExprResult ActOnWildcardPattern(SourceLocation UnderscoreLoc);
   ExprResult ActOnIdentifierPattern(SourceLocation IdLoc, IdentifierInfo *II);
+  ExprResult ActOnDestructuringPattern(
+      SourceLocation LSquareLoc, SmallVectorImpl<ExprResult> &SubPatterns,
+      SourceLocation RSquareLoc);
+  ExprResult ActOnBindingPattern(
+      SourceLocation AutoLoc, SourceLocation LSquareLoc,
+      SmallVectorImpl<IdentifierInfo *> &Bindings,
+      SmallVectorImpl<SourceLocation> &BindingLocs,
+      SourceLocation RSquareLoc, Expr *Scrutinee);
+  ExprResult ActOnTypePattern(SourceLocation QuestionLoc,
+                               TypeSourceInfo *TSI,
+                               SourceLocation EndLoc);
 
   // Contracts Sema actions
   StmtResult ActOnContractAssertStmt(SourceLocation Loc, Expr *Condition,

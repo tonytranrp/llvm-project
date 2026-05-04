@@ -450,9 +450,8 @@ PATTERN_MATCHING_KEYWORD(match)
 
 // Contracts extension keywords
 CONTRACTS_KEYWORD(contract_assert)
-// Note: 'pre' and 'post' are handled as contextual keywords in function
-// declarator parsing, not as global keywords, to avoid conflicts with
-// existing identifiers named 'pre' or 'post'.
+CONTRACTS_KEYWORD(pre)
+CONTRACTS_KEYWORD(post)
 
 // C++26 Reflection metafunction keywords (P2996)
 REFLECTION_KEYWORD(is_type)

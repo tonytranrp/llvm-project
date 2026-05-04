@@ -5189,6 +5189,18 @@ private:
   // Pattern matching parsing
   /// ParseMatchExpression - parses match(expr) { patterns... }
   ExprResult ParseMatchExpression();
+  /// ParsePattern - parses a single pattern (wildcard, type, destructuring, expr)
+  ExprResult ParsePattern();
+  /// ParseDestructuringPattern - parses [p1, p2, ...] destructuring pattern
+  ExprResult ParseDestructuringPattern();
+  /// ParseBindingPattern - parses auto [x, y, ...] binding destructuring pattern
+  ExprResult ParseBindingPattern();
+  /// ParseTypePattern - parses ?type type pattern
+  ExprResult ParseTypePattern();
+
+  /// During match expression parsing, holds the current scrutinee expression
+  /// so that binding patterns can access it for VarDecl creation.
+  Expr *MatchScrutinee = nullptr;
 
   // Reflection metafunction parsing
   /// ParseReflectionMetafunction - parses is_type(expr), type_of(expr),
@@ -7563,6 +7575,10 @@ public:
 
   /// ParseContractAssertStatement - Parse contract_assert(condition) statement
   StmtResult ParseContractAssertStatement();
+  /// ParseContractPreStatement - Parse pre(condition) statement
+  StmtResult ParseContractPreStatement();
+  /// ParseContractPostStatement - Parse post(condition) statement
+  StmtResult ParseContractPostStatement();
 
   StmtResult ParsePragmaLoopHint(StmtVector &Stmts, ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,

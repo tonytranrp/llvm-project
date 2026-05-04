@@ -319,6 +319,18 @@ Retry:
       SemiError = "contract_assert";
     }
     break;
+  case tok::kw_pre:                 // C++ Contracts: pre(condition) statement
+    if (getLangOpts().Contracts) {
+      Res = ParseContractPreStatement();
+      SemiError = "pre";
+    }
+    break;
+  case tok::kw_post:                // C++ Contracts: post(condition) statement
+    if (getLangOpts().Contracts) {
+      Res = ParseContractPostStatement();
+      SemiError = "post";
+    }
+    break;
   case tok::kw__Defer: // C defer TS: defer-statement
     return ParseDeferStatement(TrailingElseLoc);
 
@@ -2416,6 +2428,74 @@ StmtResult Parser::ParseContractAssertStatement() {
   T.consumeClose();
 
   return Actions.ActOnContractAssertStmt(AssertLoc, Condition.get(), Message);
+}
+
+/// ParseContractPreStatement - Parse 'pre(condition);'
+/// A precondition contract checked at function entry.
+StmtResult Parser::ParseContractPreStatement() {
+  assert(Tok.is(tok::kw_pre) && "Expected 'pre'");
+  SourceLocation PreLoc = ConsumeToken();
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.expectAndConsume(diag::err_expected_lparen_after, "pre"))
+    return StmtError();
+
+  ExprResult Condition = ParseExpression();
+  if (Condition.isInvalid()) {
+    T.skipToEnd();
+    return StmtError();
+  }
+
+  // Optional string message
+  StringLiteral *Message = nullptr;
+  if (Tok.is(tok::comma)) {
+    ConsumeToken();
+    ExprResult MsgExpr = ParseAssignmentExpression();
+    if (!MsgExpr.isInvalid()) {
+      if (auto *SL = dyn_cast<StringLiteral>(MsgExpr.get()))
+        Message = SL;
+    }
+  }
+
+  T.consumeClose();
+
+  // Lower pre(cond) to contract_assert(cond) — same if-then-trap semantics
+  return Actions.ActOnContractAssertStmt(PreLoc, Condition.get(), Message);
+}
+
+/// ParseContractPostStatement - Parse 'post(condition);'
+/// A postcondition contract checked at function exit.
+StmtResult Parser::ParseContractPostStatement() {
+  assert(Tok.is(tok::kw_post) && "Expected 'post'");
+  SourceLocation PostLoc = ConsumeToken();
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.expectAndConsume(diag::err_expected_lparen_after, "post"))
+    return StmtError();
+
+  ExprResult Condition = ParseExpression();
+  if (Condition.isInvalid()) {
+    T.skipToEnd();
+    return StmtError();
+  }
+
+  // Optional string message
+  StringLiteral *Message = nullptr;
+  if (Tok.is(tok::comma)) {
+    ConsumeToken();
+    ExprResult MsgExpr = ParseAssignmentExpression();
+    if (!MsgExpr.isInvalid()) {
+      if (auto *SL = dyn_cast<StringLiteral>(MsgExpr.get()))
+        Message = SL;
+    }
+  }
+
+  T.consumeClose();
+
+  // For MVP, post(cond) is lowered the same as contract_assert(cond).
+  // TODO(Tier 2): Store postcondition separately and emit checks before
+  // every return statement and at the end of the function body.
+  return Actions.ActOnContractAssertStmt(PostLoc, Condition.get(), Message);
 }
 
 StmtResult Parser::ParseDeferStatement(SourceLocation *TrailingElseLoc) {

@@ -2625,6 +2625,9 @@ void StmtPrinter::VisitCXXReflectionMetafunctionExpr(
   case CXXReflectionMetafunctionExpr::MK_IdentifierOf:
     OS << "identifier_of(";
     break;
+  case CXXReflectionMetafunctionExpr::MK_MembersOf:
+    OS << "members_of(";
+    break;
   }
   PrintExpr(S->getArgument());
   OS << ')';
