@@ -5611,6 +5611,8 @@ public:
     MK_TypeOf,
     /// identifier_of(expr) — returns the name of the reflected entity
     MK_IdentifierOf,
+    /// members_of(expr) — returns a pack of reflections for the members
+    MK_MembersOf,
   };
 
 private:

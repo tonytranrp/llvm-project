@@ -5900,3 +5900,8 @@ def MetaIdentifierOf : LangBuiltin<"ALL_LANGUAGES"> {
   let Attributes = [NoThrow, CustomTypeChecking];
   let Prototype = "int(...)";
 }
+def MetaMembersOf : LangBuiltin<"ALL_LANGUAGES"> {
+  let Spellings = ["__builtin_meta_members_of"];
+  let Attributes = [NoThrow, CustomTypeChecking];
+  let Prototype = "int(...)";
+}

@@ -3978,6 +3978,24 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     // Custom type checking — the return type depends on the reflection.
     break;
   }
+  case Builtin::BI__builtin_meta_members_of: {
+    if (!getLangOpts().Reflection) {
+      Diag(TheCall->getBeginLoc(), diag::err_contracts_required)
+          << "reflection required for __builtin_meta_members_of";
+      return ExprError();
+    }
+    // If the argument is a CXXReflectExpr reflecting a type, count its members
+    // and return a CXXReflectionMetafunctionExpr. For MVP, just validate arity.
+    if (TheCall->getNumArgs() != 1) {
+      Diag(TheCall->getBeginLoc(), diag::err_typecheck_call_too_many_args)
+          << 1 << TheCall->getNumArgs();
+      return ExprError();
+    }
+    // Return type is std::meta::info (i64) — the metafunction expr handles this
+    // at CodeGen time by iterating the reflected type's fields.
+    TheCall->setType(Context.LongLongTy);
+    break;
+  }
   } // end switch
 
   if (getLangOpts().HLSL && HLSL().CheckBuiltinFunctionCall(BuiltinID, TheCall))

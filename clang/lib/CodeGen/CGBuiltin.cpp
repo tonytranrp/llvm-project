@@ -26,6 +26,7 @@
 #include "TargetInfo.h"
 #include "clang/AST/OSLog.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/IR/InlineAsm.h"
@@ -4025,6 +4026,40 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     }
 
     return RValue::get(Result);
+  }
+  // C++26 Reflection metafunctions (P2996)
+  case Builtin::BI__builtin_meta_is_type: {
+    // Already folded to bool literal in Sema. If we reach here,
+    // the argument was not a CXXReflectExpr — emit i1 false as safe default.
+    return RValue::get(llvm::ConstantInt::get(Builder.getInt1Ty(), 0));
+  }
+  case Builtin::BI__builtin_meta_type_of: {
+    // MVP: return the argument as i64 (the reflection value itself)
+    llvm::Value *Arg = EmitScalarExpr(E->getArg(0));
+    return RValue::get(Arg);
+  }
+  case Builtin::BI__builtin_meta_identifier_of: {
+    // MVP: return 0 as i64 placeholder (name not yet extractable at runtime)
+    return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), 0));
+  }
+  case Builtin::BI__builtin_meta_members_of: {
+    // MVP: count the fields of the reflected struct and return as i64
+    // If the argument is a CXXReflectExpr with RK_Type, try to get the RecordDecl
+    const Expr *Arg = E->getArg(0)->IgnoreParenImpCasts();
+    if (auto *RE = dyn_cast<CXXReflectExpr>(Arg)) {
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *TSI = RE->getTypeOperand()) {
+          QualType QT = TSI->getType();
+          if (auto *RD = QT->getAsCXXRecordDecl()) {
+            unsigned Count = 0;
+            for (auto *F : RD->fields()) { (void)F; ++Count; }
+            return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), Count));
+          }
+        }
+      }
+    }
+    // Fallback: return 0
+    return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), 0));
   }
   case Builtin::BI__builtin_prefetch: {
     Value *Locality, *RW, *Address = EmitScalarExpr(E->getArg(0));
