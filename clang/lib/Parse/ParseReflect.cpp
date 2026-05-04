@@ -33,23 +33,24 @@ ExprResult Parser::ParseCXXReflectExpression() {
 
   // Case 2: ^^id-expression (namespace, declaration, or type reflection)
   // Try parsing as an id-expression first. This handles ^^NamespaceName,
-  // ^^variable, ^^function_name, ^^ClassName::member, etc.
+  // ^^variable, ^^function_name, ^^NS::member, ^^Outer::Inner, etc.
   // We try this before type-id because namespace names are also valid
   // type-ids in tentative parsing, but we need the id-expression path
   // for namespace reflection to work.
   if (Tok.is(tok::identifier) || Tok.is(tok::coloncolon) ||
       Tok.is(tok::kw_operator) || Tok.is(tok::tilde) ||
       Tok.is(tok::kw_template)) {
-    // Parse as a qualified-id or unqualified-id
+    // Parse as a qualified-id or unqualified-id.
+    // Always try to parse a scope specifier — this handles both
+    // ^^Outer::Inner (leading ::) and ^^Outer::Inner (SS built from
+    // the first identifier as a namespace).
     CXXScopeSpec SS;
-    if (Tok.is(tok::coloncolon)) {
-      ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
-                                     /*ObjectHasErrors=*/false,
-                                     /*EnteringContext=*/false,
-                                     /*MayBePseudoDestructor=*/nullptr,
-                                     /*IsTypename=*/false,
-                                     /*LastLoc=*/nullptr);
-    }
+    ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
+                                   /*ObjectHasErrors=*/false,
+                                   /*EnteringContext=*/false,
+                                   /*MayBePseudoDestructor=*/nullptr,
+                                   /*IsTypename=*/false,
+                                   /*LastLoc=*/nullptr);
 
     SourceLocation TemplateKWLoc;
     UnqualifiedId Name;
