@@ -14942,6 +14942,8 @@ public:
                                  ValueDecl *D);
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, SourceLocation OperandLoc,
                                  NamespaceDecl *NS);
+  ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, SourceLocation OperandLoc,
+                                 TemplateDecl *TmplD);
   /// ActOnCXXReflectExpr - Handle ^^name where name could be a namespace,
   /// declaration, or type. Performs name lookup and dispatches accordingly.
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, CXXScopeSpec &SS,

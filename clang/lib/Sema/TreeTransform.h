@@ -3069,6 +3069,14 @@ public:
                                            RHS, /*RequiresADL*/false);
   }
 
+  /// Build a new CXXReflectExpr during template transformation.
+  ExprResult RebuildCXXReflectExpr(SourceLocation OpLoc,
+                                    SourceLocation OperandLoc,
+                                    CXXReflectExpr::operand_type Operand,
+                                    CXXReflectExpr::ReflectionKind Kind) {
+    return getSema().BuildCXXReflectExpr(OpLoc, OperandLoc, Operand, Kind);
+  }
+
   /// Build a new reflection metafunction expression.
   ///
   /// By default, performs semantic analysis to build the new expression.
@@ -13189,9 +13197,50 @@ StmtResult TreeTransform<Derived>::TransformUnresolvedSYCLKernelCallStmt(
 
 template <typename Derived>
 ExprResult TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
-  // TODO(reflection): Implement its transform
-  assert(false && "not implemented yet");
-  return ExprError();
+  // Rebuild the expression based on the reflection kind
+  switch (E->getReflectionKind()) {
+  case CXXReflectExpr::RK_Type: {
+    if (auto *TSI = E->getTypeOperand()) {
+      TypeSourceInfo *NewTSI = getDerived().TransformType(TSI);
+      if (!NewTSI)
+        return ExprError();
+      if (!getDerived().AlwaysRebuild() && NewTSI == TSI)
+        return E;
+      return getDerived().RebuildCXXReflectExpr(
+          E->getOperatorLoc(), E->getOperandLoc(), NewTSI,
+          CXXReflectExpr::RK_Type);
+    }
+    return E;
+  }
+  case CXXReflectExpr::RK_Declaration: {
+    if (auto *D = E->getDeclarationOperand()) {
+      // For declarations, just rebuild with the same decl for now
+      return getDerived().RebuildCXXReflectExpr(
+          E->getOperatorLoc(), E->getOperandLoc(), D,
+          CXXReflectExpr::RK_Declaration);
+    }
+    return E;
+  }
+  case CXXReflectExpr::RK_Namespace: {
+    if (auto *NS = E->getNamespaceOperand()) {
+      return getDerived().RebuildCXXReflectExpr(
+          E->getOperatorLoc(), E->getOperandLoc(), NS,
+          CXXReflectExpr::RK_Namespace);
+    }
+    return E;
+  }
+  case CXXReflectExpr::RK_GlobalNamespace:
+    return E;
+  case CXXReflectExpr::RK_Template: {
+    if (auto *TD = E->getTemplateOperand()) {
+      return getDerived().RebuildCXXReflectExpr(
+          E->getOperatorLoc(), E->getOperandLoc(), TD,
+          CXXReflectExpr::RK_Template);
+    }
+    return E;
+  }
+  }
+  return E;
 }
 
 template <typename Derived>

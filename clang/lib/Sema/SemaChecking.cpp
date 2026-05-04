@@ -4039,6 +4039,10 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
               NameStr = ND->getName().str();
             }
           }
+        } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Template) {
+          if (auto *TD = RE->getTemplateOperand()) {
+            NameStr = TD->getNameAsString();
+          }
         }
         if (!NameStr.empty()) {
           // Fold to a StringLiteral at compile time.

@@ -2213,6 +2213,26 @@ void StmtProfiler::VisitCXXReflectExpr(const CXXReflectExpr *E) {
   // Note: we don't profile the operand pointer values since they are
   // AST-internal pointers. For a full implementation, we'd need to
   // serialize a canonical representation of the reflected entity.
+  switch (E->getReflectionKind()) {
+  case CXXReflectExpr::RK_Type:
+    if (auto *TSI = E->getTypeOperand())
+      ID.AddString(TSI->getType().getCanonicalType().getAsString());
+    break;
+  case CXXReflectExpr::RK_Declaration:
+    if (auto *D = E->getDeclarationOperand())
+      ID.AddString(D->getQualifiedNameAsString());
+    break;
+  case CXXReflectExpr::RK_Namespace:
+    if (auto *NS = E->getNamespaceOperand())
+      ID.AddString(NS->getQualifiedNameAsString());
+    break;
+  case CXXReflectExpr::RK_GlobalNamespace:
+    break;
+  case CXXReflectExpr::RK_Template:
+    if (auto *TD = E->getTemplateOperand())
+      ID.AddString(TD->getQualifiedNameAsString());
+    break;
+  }
 }
 
 void StmtProfiler::VisitCXXReflectionMetafunctionExpr(

@@ -545,7 +545,31 @@ void ASTStmtReader::VisitCXXReflectExpr(CXXReflectExpr *E) {
   E->OperandLoc = readSourceLocation();
   unsigned Kind = Record.readInt();
   E->Kind = static_cast<CXXReflectExpr::ReflectionKind>(Kind);
-  // TODO(Reflection): serialize the operand (TypeSourceInfo* or ValueDecl*)
+  switch (E->Kind) {
+  case CXXReflectExpr::RK_Type: {
+    auto *TSI = Record.readTypeSourceInfo();
+    E->Operand = TSI;
+    break;
+  }
+  case CXXReflectExpr::RK_Declaration: {
+    auto *D = Record.readDeclAs<ValueDecl>();
+    E->Operand = D;
+    break;
+  }
+  case CXXReflectExpr::RK_Namespace: {
+    auto *NS = Record.readDeclAs<NamespaceDecl>();
+    E->Operand = NS;
+    break;
+  }
+  case CXXReflectExpr::RK_GlobalNamespace:
+    E->Operand = nullptr;
+    break;
+  case CXXReflectExpr::RK_Template: {
+    auto *TD = Record.readDeclAs<TemplateDecl>();
+    E->Operand = TD;
+    break;
+  }
+  }
 }
 
 void ASTStmtReader::VisitCXXReflectionMetafunctionExpr(

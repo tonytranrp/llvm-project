@@ -479,7 +479,22 @@ void ASTStmtWriter::VisitCXXReflectExpr(CXXReflectExpr *E) {
   Record.AddSourceLocation(E->CaretCaretLoc);
   Record.AddSourceLocation(E->OperandLoc);
   Record.push_back(E->Kind);
-  // TODO(Reflection): serialize the operand (TypeSourceInfo* or ValueDecl*)
+  switch (E->Kind) {
+  case CXXReflectExpr::RK_Type:
+    Record.AddTypeSourceInfo(E->getTypeOperand());
+    break;
+  case CXXReflectExpr::RK_Declaration:
+    Record.AddDeclRef(E->getDeclarationOperand());
+    break;
+  case CXXReflectExpr::RK_Namespace:
+    Record.AddDeclRef(E->getNamespaceOperand());
+    break;
+  case CXXReflectExpr::RK_GlobalNamespace:
+    break; // no operand
+  case CXXReflectExpr::RK_Template:
+    Record.AddDeclRef(E->getTemplateOperand());
+    break;
+  }
   Code = serialization::EXPR_REFLECT;
 }
 

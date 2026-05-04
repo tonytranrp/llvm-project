@@ -5003,8 +5003,34 @@ recurse:
     goto recurse;
 
   case Expr::CXXReflectExprClass: {
-    // TODO(Reflection): implement this after introducing std::meta::info
-    assert(false && "unimplemented");
+    // Mangle based on the reflection kind and entity name
+    auto *RE = cast<CXXReflectExpr>(E);
+    Out << "re";
+    switch (RE->getReflectionKind()) {
+    case CXXReflectExpr::RK_Type:
+      Out << "T";
+      if (auto *TSI = RE->getTypeOperand())
+        mangleType(TSI->getType());
+      break;
+    case CXXReflectExpr::RK_Declaration:
+      Out << "D";
+      if (auto *D = RE->getDeclarationOperand())
+        mangleName(D);
+      break;
+    case CXXReflectExpr::RK_Namespace:
+      Out << "N";
+      if (auto *NS = RE->getNamespaceOperand())
+        mangleName(NS);
+      break;
+    case CXXReflectExpr::RK_GlobalNamespace:
+      Out << "G";
+      break;
+    case CXXReflectExpr::RK_Template:
+      Out << "t";
+      if (auto *TD = RE->getTemplateOperand())
+        mangleName(TD);
+      break;
+    }
     break;
   }
   case Expr::CXXReflectionMetafunctionExprClass: {

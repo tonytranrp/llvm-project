@@ -5520,10 +5520,12 @@ public:
     RK_Namespace,
     /// Reflecting the global namespace: ^^::
     RK_GlobalNamespace,
+    /// Reflecting a template: ^^MyTemplate
+    RK_Template,
   };
 
   /// Operand type — public so Sema can use it in BuildCXXReflectExpr.
-  using operand_type = llvm::PointerUnion<TypeSourceInfo *, ValueDecl *, NamespaceDecl *>;
+  using operand_type = llvm::PointerUnion<TypeSourceInfo *, ValueDecl *, NamespaceDecl *, TemplateDecl *>;
 
 private:
 
@@ -5565,6 +5567,11 @@ public:
   /// Returns true if this reflects the global namespace.
   bool isGlobalNamespace() const { return Kind == RK_GlobalNamespace; }
 
+  /// Returns the reflected template, if this reflects a template.
+  TemplateDecl *getTemplateOperand() const {
+    return Kind == RK_Template ? llvm::cast<TemplateDecl *>(Operand) : nullptr;
+  }
+
   SourceLocation getBeginLoc() const LLVM_READONLY {
     if (Kind == RK_GlobalNamespace)
       return OperandLoc;
@@ -5572,7 +5579,8 @@ public:
         .Case<TypeSourceInfo *>(
             [](auto *Ptr) { return Ptr->getTypeLoc().getBeginLoc(); })
         .Case<ValueDecl *>([](auto *D) { return D->getBeginLoc(); })
-        .Case<NamespaceDecl *>([](auto *NS) { return NS->getBeginLoc(); });
+        .Case<NamespaceDecl *>([](auto *NS) { return NS->getBeginLoc(); })
+        .Case<TemplateDecl *>([](auto *D) { return D->getBeginLoc(); });
   }
 
   SourceLocation getEndLoc() const LLVM_READONLY {
@@ -5582,7 +5590,8 @@ public:
         .Case<TypeSourceInfo *>(
             [](auto *Ptr) { return Ptr->getTypeLoc().getEndLoc(); })
         .Case<ValueDecl *>([](auto *D) { return D->getEndLoc(); })
-        .Case<NamespaceDecl *>([](auto *NS) { return NS->getEndLoc(); });
+        .Case<NamespaceDecl *>([](auto *NS) { return NS->getEndLoc(); })
+        .Case<TemplateDecl *>([](auto *D) { return D->getEndLoc(); });
   }
 
   /// Returns location of the '^^'-operator.

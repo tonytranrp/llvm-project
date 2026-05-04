@@ -18208,6 +18208,13 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation CaretCaretLoc,
                              CXXReflectExpr::RK_Namespace);
 }
 
+ExprResult Sema::ActOnCXXReflectExpr(SourceLocation CaretCaretLoc,
+                                     SourceLocation OperandLoc,
+                                     TemplateDecl *TmplD) {
+  return BuildCXXReflectExpr(CaretCaretLoc, OperandLoc, TmplD,
+                             CXXReflectExpr::RK_Template);
+}
+
 ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc, CXXScopeSpec &SS,
                                       UnqualifiedId &Name, Scope *S) {
   // Perform name lookup to determine what kind of entity the name refers to.
@@ -18241,6 +18248,14 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc, CXXScopeSpec &SS,
     if (auto *NS = dyn_cast<NamespaceDecl>(Found)) {
       return ActOnCXXReflectExpr(OpLoc, NameLoc, NS);
     }
+    // Check for function templates first — a FunctionDecl may have a
+    // FunctionTemplateDecl as its primary template.
+    if (auto *FD = dyn_cast<FunctionDecl>(Found)) {
+      if (auto *FTD = FD->getPrimaryTemplate()) {
+        return ActOnCXXReflectExpr(OpLoc, NameLoc, FTD);
+      }
+      return ActOnCXXReflectExpr(OpLoc, NameLoc, FD);
+    }
     if (auto *VD = dyn_cast<ValueDecl>(Found)) {
       return ActOnCXXReflectExpr(OpLoc, NameLoc, VD);
     }
@@ -18249,6 +18264,27 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc, CXXScopeSpec &SS,
       QualType QT = Context.getTypeDeclType(TD);
       TypeSourceInfo *TSI = Context.getTrivialTypeSourceInfo(QT, NameLoc);
       return ActOnCXXReflectExpr(OpLoc, TSI);
+    }
+    // If it's a TemplateDecl (class template or function template),
+    // build a template reflection
+    if (auto *TmplD = dyn_cast<TemplateDecl>(Found)) {
+      return ActOnCXXReflectExpr(OpLoc, NameLoc, TmplD);
+    }
+  }
+
+  // Handle overloaded function template names.
+  // When lookup finds multiple results (overload set), try to find a
+  // common FunctionTemplateDecl.
+  if (R.isOverloadedResult()) {
+    // For the MVP, just use the first result
+    NamedDecl *First = R.getFoundDecl();
+    if (auto *FD = dyn_cast_or_null<FunctionDecl>(First)) {
+      if (auto *FTD = FD->getPrimaryTemplate()) {
+        return ActOnCXXReflectExpr(OpLoc, NameLoc, FTD);
+      }
+    }
+    if (auto *FTD = dyn_cast_or_null<FunctionTemplateDecl>(First)) {
+      return ActOnCXXReflectExpr(OpLoc, NameLoc, FTD);
     }
   }
 

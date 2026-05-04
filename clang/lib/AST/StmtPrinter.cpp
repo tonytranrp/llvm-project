@@ -2616,6 +2616,12 @@ void StmtPrinter::VisitCXXReflectExpr(CXXReflectExpr *S) {
   case CXXReflectExpr::RK_GlobalNamespace:
     OS << "::";
     break;
+  case CXXReflectExpr::RK_Template:
+    if (auto *TD = S->getTemplateOperand())
+      OS << TD->getNameAsString();
+    else
+      OS << "<template>";
+    break;
   }
 }
 

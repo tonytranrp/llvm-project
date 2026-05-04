@@ -827,9 +827,53 @@ public:
   }
 
   Value *VisitCXXReflectExpr(const CXXReflectExpr *E) {
-    // For the MVP, reflection values are emitted as opaque i64 constants.
-    // A full implementation would compute a stable compile-time value
-    // representing the reflected entity (type index, decl pointer, etc.).
+    // Reflection values are emitted as opaque i64 constants.
+    // We assign stable-ish values based on kind and entity identity.
+    switch (E->getReflectionKind()) {
+    case CXXReflectExpr::RK_Type: {
+      // Use a hash of the type's canonical name as the reflection value
+      if (auto *TSI = E->getTypeOperand()) {
+        auto Name = TSI->getType().getCanonicalType().getAsString();
+        uint64_t Hash = 0;
+        for (char C : Name)
+          Hash = Hash * 131 + static_cast<unsigned char>(C);
+        return Builder.getInt64(Hash);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectExpr::RK_Declaration: {
+      if (auto *D = E->getDeclarationOperand()) {
+        auto Name = D->getQualifiedNameAsString();
+        uint64_t Hash = 0;
+        for (char C : Name)
+          Hash = Hash * 131 + static_cast<unsigned char>(C);
+        return Builder.getInt64(Hash);
+      }
+      return Builder.getInt64(1);
+    }
+    case CXXReflectExpr::RK_Namespace: {
+      if (auto *NS = E->getNamespaceOperand()) {
+        auto Name = NS->getQualifiedNameAsString();
+        uint64_t Hash = 0;
+        for (char C : Name)
+          Hash = Hash * 131 + static_cast<unsigned char>(C);
+        return Builder.getInt64(Hash | 0x8000000000000000ULL);
+      }
+      return Builder.getInt64(2);
+    }
+    case CXXReflectExpr::RK_GlobalNamespace:
+      return Builder.getInt64(0x8000000000000000ULL);
+    case CXXReflectExpr::RK_Template: {
+      if (auto *TD = E->getTemplateOperand()) {
+        auto Name = TD->getQualifiedNameAsString();
+        uint64_t Hash = 0;
+        for (char C : Name)
+          Hash = Hash * 131 + static_cast<unsigned char>(C);
+        return Builder.getInt64(Hash | 0x4000000000000000ULL);
+      }
+      return Builder.getInt64(3);
+    }
+    }
     return Builder.getInt64(0);
   }
 
