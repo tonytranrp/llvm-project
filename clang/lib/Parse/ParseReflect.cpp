@@ -108,7 +108,8 @@ ExprResult Parser::ParseReflectionMetafunction() {
   //        is_namespace(expr), is_enum(expr), parent_of(expr),
   //        size_of(expr), get_type(expr), is_public(expr), is_private(expr),
   //        is_protected(expr), is_data_member(expr), is_member_function(expr),
-  //        is_static(expr)
+  //        is_static(expr), is_inline(expr), is_virtual(expr), is_const(expr),
+  //        is_volatile(expr), offset_of(expr), has_parent(expr)
   assert((Tok.is(tok::kw_is_type) || Tok.is(tok::kw_type_of) ||
           Tok.is(tok::kw_identifier_of) || Tok.is(tok::kw_decl_of) ||
           Tok.is(tok::kw_name_of) || Tok.is(tok::kw_members_of) ||
@@ -118,7 +119,10 @@ ExprResult Parser::ParseReflectionMetafunction() {
           Tok.is(tok::kw_get_type) || Tok.is(tok::kw_is_public) ||
           Tok.is(tok::kw_is_private) || Tok.is(tok::kw_is_protected) ||
           Tok.is(tok::kw_is_data_member) || Tok.is(tok::kw_is_member_function) ||
-          Tok.is(tok::kw_is_static)) &&
+          Tok.is(tok::kw_is_static) || Tok.is(tok::kw_is_inline) ||
+          Tok.is(tok::kw_is_virtual) || Tok.is(tok::kw_is_const) ||
+          Tok.is(tok::kw_is_volatile) || Tok.is(tok::kw_offset_of) ||
+          Tok.is(tok::kw_has_parent)) &&
          "Expected reflection metafunction keyword");
   assert(getLangOpts().Reflection && "Reflection not enabled");
 

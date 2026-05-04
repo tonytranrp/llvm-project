@@ -473,6 +473,12 @@ REFLECTION_KEYWORD(is_protected)
 REFLECTION_KEYWORD(is_data_member)
 REFLECTION_KEYWORD(is_member_function)
 REFLECTION_KEYWORD(is_static)
+REFLECTION_KEYWORD(is_inline)
+REFLECTION_KEYWORD(is_virtual)
+REFLECTION_KEYWORD(is_const)
+REFLECTION_KEYWORD(is_volatile)
+REFLECTION_KEYWORD(offset_of)
+REFLECTION_KEYWORD(has_parent)
 
 // C++20 keywords
 MODULES_KEYWORD(module)

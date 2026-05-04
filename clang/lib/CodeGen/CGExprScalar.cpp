@@ -1225,6 +1225,111 @@ public:
       }
       return Builder.getInt1(false);
     }
+    case CXXReflectionMetafunctionExpr::MK_IsInline: {
+      // is_inline: check if the reflected function is inline.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FunctionDecl>(D))
+              return Builder.getInt1(FD->isInlineSpecified());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsVirtual: {
+      // is_virtual: check if the reflected member function is virtual.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+              return Builder.getInt1(MD->isVirtual());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsConst: {
+      // is_const: check if the reflected entity is const-qualified.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          return Builder.getInt1(
+              Reflect->getTypeOperand()->getType().isConstQualified());
+        }
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *VD = dyn_cast<ValueDecl>(D))
+              return Builder.getInt1(VD->getType().isConstQualified());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsVolatile: {
+      // is_volatile: check if the reflected entity is volatile-qualified.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          return Builder.getInt1(
+              Reflect->getTypeOperand()->getType().isVolatileQualified());
+        }
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *VD = dyn_cast<ValueDecl>(D))
+              return Builder.getInt1(VD->getType().isVolatileQualified());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_OffsetOf: {
+      // offset_of: return the byte offset of a reflected data member.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FieldDecl>(D)) {
+              if (FD->getParent() && !FD->getParent()->isInvalidDecl()) {
+                const ASTRecordLayout &Layout =
+                    CGF.getContext().getASTRecordLayout(FD->getParent());
+                uint64_t Offset =
+                    Layout.getFieldOffset(FD->getFieldIndex()) /
+                    CGF.getContext().getCharWidth();
+                return Builder.getInt64(Offset);
+              }
+            }
+          }
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_HasParent: {
+      // has_parent: check if the reflected entity has a parent.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *ND = dyn_cast<NamedDecl>(D)) {
+              auto *DC = ND->getDeclContext();
+              return Builder.getInt1(DC && !isa<TranslationUnitDecl>(DC));
+            }
+          }
+        } else if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          return Builder.getInt1(true);
+        } else if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Namespace) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *ND = dyn_cast<NamedDecl>(D)) {
+              auto *DC = ND->getDeclContext();
+              return Builder.getInt1(DC && !isa<TranslationUnitDecl>(DC));
+            }
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
   }

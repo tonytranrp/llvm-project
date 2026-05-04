@@ -5661,6 +5661,18 @@ public:
     MK_IsMemberFunction,
     /// is_static(expr) — returns bool indicating if the reflected entity is static
     MK_IsStatic,
+    /// is_inline(expr) — returns bool indicating if the reflected function is inline
+    MK_IsInline,
+    /// is_virtual(expr) — returns bool indicating if the reflected member function is virtual
+    MK_IsVirtual,
+    /// is_const(expr) — returns bool indicating if the reflected entity is const-qualified
+    MK_IsConst,
+    /// is_volatile(expr) — returns bool indicating if the reflected entity is volatile-qualified
+    MK_IsVolatile,
+    /// offset_of(expr) — returns the byte offset of a reflected data member
+    MK_OffsetOf,
+    /// has_parent(expr) — returns bool indicating if the reflected entity has a parent
+    MK_HasParent,
   };
 
 private:

@@ -18395,6 +18395,24 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_static:
     MK = CXXReflectionMetafunctionExpr::MK_IsStatic;
     break;
+  case tok::kw_is_inline:
+    MK = CXXReflectionMetafunctionExpr::MK_IsInline;
+    break;
+  case tok::kw_is_virtual:
+    MK = CXXReflectionMetafunctionExpr::MK_IsVirtual;
+    break;
+  case tok::kw_is_const:
+    MK = CXXReflectionMetafunctionExpr::MK_IsConst;
+    break;
+  case tok::kw_is_volatile:
+    MK = CXXReflectionMetafunctionExpr::MK_IsVolatile;
+    break;
+  case tok::kw_offset_of:
+    MK = CXXReflectionMetafunctionExpr::MK_OffsetOf;
+    break;
+  case tok::kw_has_parent:
+    MK = CXXReflectionMetafunctionExpr::MK_HasParent;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18424,8 +18442,14 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
     case tok::kw_is_protected: KwName = "is_protected"; break;
     case tok::kw_is_data_member: KwName = "is_data_member"; break;
     case tok::kw_is_member_function: KwName = "is_member_function"; break;
-    case tok::kw_is_static: KwName = "is_static"; break;
-    default: break;
+  case tok::kw_is_static: KwName = "is_static"; break;
+  case tok::kw_is_inline: KwName = "is_inline"; break;
+  case tok::kw_is_virtual: KwName = "is_virtual"; break;
+  case tok::kw_is_const: KwName = "is_const"; break;
+  case tok::kw_is_volatile: KwName = "is_volatile"; break;
+  case tok::kw_offset_of: KwName = "offset_of"; break;
+  case tok::kw_has_parent: KwName = "has_parent"; break;
+  default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
         << KwName;
@@ -18494,8 +18518,17 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_IsDataMember:
   case CXXReflectionMetafunctionExpr::MK_IsMemberFunction:
   case CXXReflectionMetafunctionExpr::MK_IsStatic:
+  case CXXReflectionMetafunctionExpr::MK_IsInline:
+  case CXXReflectionMetafunctionExpr::MK_IsVirtual:
+  case CXXReflectionMetafunctionExpr::MK_IsConst:
+  case CXXReflectionMetafunctionExpr::MK_IsVolatile:
+  case CXXReflectionMetafunctionExpr::MK_HasParent:
     // Access/member queries return bool
     ResultTy = Context.BoolTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_OffsetOf:
+    // offset_of returns the byte offset (as size_t)
+    ResultTy = Context.LongLongTy;
     break;
   }
 
@@ -18580,6 +18613,65 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
             ResultValue = MD->isStatic();
           else if (auto *VD = dyn_cast<VarDecl>(D))
             ResultValue = VD->isStaticDataMember();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsInline:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *FD = dyn_cast<FunctionDecl>(D))
+            ResultValue = FD->isInlineSpecified();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsVirtual:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+            ResultValue = MD->isVirtual();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsConst:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType().isConstQualified();
+      } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *VD = dyn_cast<ValueDecl>(D))
+            ResultValue = VD->getType().isConstQualified();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsVolatile:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType().isVolatileQualified();
+      } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *VD = dyn_cast<ValueDecl>(D))
+            ResultValue = VD->getType().isVolatileQualified();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_OffsetOf:
+      // offset_of requires ASTRecordLayout which is not available in Sema.
+      // Computed at CodeGen time; for Sema we just leave ResultValue = false (0).
+      break;
+    case CXXReflectionMetafunctionExpr::MK_HasParent:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *ND = dyn_cast<NamedDecl>(D)) {
+            auto *DC = ND->getDeclContext();
+            ResultValue = DC && !isa<TranslationUnitDecl>(DC);
+          }
+        }
+      } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = true; // types always have a parent (at least global ns)
+      } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Namespace) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *ND = dyn_cast<NamedDecl>(D)) {
+            auto *DC = ND->getDeclContext();
+            ResultValue = DC && !isa<TranslationUnitDecl>(DC);
+          }
         }
       }
       break;

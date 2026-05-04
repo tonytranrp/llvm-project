@@ -1995,6 +1995,11 @@ bool CXXReflectionMetafunctionExpr::isBooleanMetafunction() const {
   case MK_IsDataMember:
   case MK_IsMemberFunction:
   case MK_IsStatic:
+  case MK_IsInline:
+  case MK_IsVirtual:
+  case MK_IsConst:
+  case MK_IsVolatile:
+  case MK_HasParent:
     return true;
   case MK_TypeOf:
   case MK_IdentifierOf:
@@ -2004,6 +2009,7 @@ bool CXXReflectionMetafunctionExpr::isBooleanMetafunction() const {
   case MK_ParentOf:
   case MK_SizeOf:
   case MK_GetType:
+  case MK_OffsetOf:
     return false;
   }
   llvm_unreachable("unexpected metafunction kind");
