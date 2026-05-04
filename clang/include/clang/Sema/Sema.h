@@ -14954,7 +14954,8 @@ public:
                             Expr *Scrutinee,
                             SmallVectorImpl<ExprResult> &Patterns,
                             SmallVectorImpl<SourceLocation> &ArrowLocs,
-                            SmallVectorImpl<ExprResult> &Results);
+                            SmallVectorImpl<ExprResult> &Results,
+                            SmallVectorImpl<ExprResult> &Guards);
   ExprResult ActOnWildcardPattern(SourceLocation UnderscoreLoc);
   ExprResult ActOnIdentifierPattern(SourceLocation IdLoc, IdentifierInfo *II);
 

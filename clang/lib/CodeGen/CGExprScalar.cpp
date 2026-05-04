@@ -826,6 +826,13 @@ public:
     return Builder.getInt1(E->getValue());
   }
 
+  Value *VisitCXXReflectExpr(const CXXReflectExpr *E) {
+    // For the MVP, reflection values are emitted as opaque i64 constants.
+    // A full implementation would compute a stable compile-time value
+    // representing the reflected entity (type index, decl pointer, etc.).
+    return Builder.getInt64(0);
+  }
+
   // Binary Operators.
   Value *EmitMul(const BinOpInfo &Ops) {
     if (Ops.Ty->isSignedIntegerOrEnumerationType() ||

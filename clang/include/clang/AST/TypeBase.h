@@ -3299,7 +3299,10 @@ public:
 
   /// Determines whether the given kind corresponds to a placeholder type.
   static bool isPlaceholderTypeKind(Kind K) {
-    return K >= Overload;
+    // MetaInfo (std::meta::info) is a concrete type, not a placeholder.
+    // It happens to be placed after Overload in the enum for convenience,
+    // but it should not be treated as a type that needs replacement.
+    return K >= Overload && K != MetaInfo;
   }
 
   /// Determines whether this type is a placeholder type, i.e. a type
@@ -3319,7 +3322,7 @@ public:
   /// specific function-pointer type, and so frequently need
   /// special treatment.
   bool isNonOverloadPlaceholderType() const {
-    return getKind() > Overload;
+    return getKind() > Overload && getKind() != MetaInfo;
   }
 
   static bool classof(const Type *T) { return T->getTypeClass() == Builtin; }

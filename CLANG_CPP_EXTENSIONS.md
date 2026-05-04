@@ -178,6 +178,7 @@ For the MVP, `contract_assert(cond)` is lowered to the condition evaluated as a 
 ### Current Limitations
 
 - No `if-then-trap` lowering yet — the condition is evaluated but a failure does not call `__builtin_trap()`.
+- `contract_assert(cond)` may produce a `-Wunused-comparison` warning when the condition is a comparison expression (e.g., `contract_assert(b != 0)`). This is because the MVP lowering evaluates the condition as a discarded-value expression. The Tier 2 `if-then-trap` lowering will eliminate this warning.
 - No `pre`/`post` contract annotations on function declarations.
 - No contract violation handler customization.
 - No contract side-effect analysis.
@@ -196,15 +197,16 @@ clang++ -std=c++26 -freflection -fpattern-matching -fcontracts my_code.cpp
 
 ## Implementation Details
 
-### Files Modified (30 files total)
+### Files Modified (34 files total)
 
 | Category | Files |
 |----------|-------|
 | **Lexer** | `TokenKinds.def`, `Lexer.cpp` — `^^` and `=>` tokens |
 | **Parser** | `Parser.h`, `ParseExpr.cpp`, `ParseStmt.cpp`, `ParseReflect.cpp`, `ParsePatternMatching.cpp` (new) |
-| **AST** | `ExprCXX.h`, `ExprCXX.cpp`, `BuiltinTypes.def`, `ASTContext.h`, `ASTContext.cpp`, `Type.cpp`, `TypeLoc.cpp` — `CXXReflectExpr` + `MetaInfo` type |
+| **AST** | `ExprCXX.h`, `ExprCXX.cpp`, `BuiltinTypes.def`, `ASTContext.h`, `ASTContext.cpp`, `Type.cpp`, `TypeLoc.cpp`, `TypeBase.h` — `CXXReflectExpr` + `MetaInfo` type |
 | **Sema** | `Sema.h`, `SemaExpr.cpp`, `SemaPatternMatching.cpp` (new) |
-| **Diagnostics** | `DiagnosticSemaKinds.td`, `DiagnosticParseKinds.td` |
+| **CodeGen** | `CodeGenTypes.cpp` — `MetaInfo` → `i64` mapping, `CGExprScalar.cpp` — `CXXReflectExpr` emission |
+| **Diagnostics** | `DiagnosticSemaKinds.td` |
 | **LangOpts** | `LangOptions.def`, `IdentifierTable.h`, `IdentifierTable.cpp` |
 | **Driver** | `Clang.cpp`, `Options.td` — `-freflection`, `-fpattern-matching`, `-fcontracts` |
 | **Serialization** | `ASTBitCodes.h`, `ASTCommon.cpp`, `ASTReader.cpp` — `MetaInfo` type support |
@@ -212,7 +214,7 @@ clang++ -std=c++26 -freflection -fpattern-matching -fcontracts my_code.cpp
 
 ### Architecture
 
-- **Reflection**: `^^` lexed as `tok::caretcaret`, parsed in `ParseReflect.cpp`, produces `CXXReflectExpr` with `ReflectionKind` (RK_Type, RK_Declaration, RK_GlobalNamespace). Result type is `std::meta::info` (a `PLACEHOLDER_TYPE` builtin).
+- **Reflection**: `^^` lexed as `tok::caretcaret`, parsed in `ParseReflect.cpp`, produces `CXXReflectExpr` with `ReflectionKind` (RK_Type, RK_Declaration, RK_GlobalNamespace). Result type is `std::meta::info` (a builtin type mapped to `i64` in LLVM IR). `auto` deduction works: `auto r = ^^int;` deduces to `std::meta::info`.
 - **Pattern Matching**: `match` is a keyword (gated by `LangOpts.PatternMatching`), `=>` is `tok::equalgreater`. Parsed in `ParsePatternMatching.cpp`, lowered to ternary chains in `SemaPatternMatching.cpp`.
 - **Contracts**: `contract_assert` is a keyword (gated by `LangOpts.Contracts`). Parsed in `ParseStmt.cpp`, lowered to expression statement in `SemaPatternMatching.cpp`.
 - **Keyword sharing**: `match` and `contract_assert` share the `KEYPATTERNMATCHING` bit (0x80000000) since they never conflict — enabled by their respective LangOpts.
@@ -222,8 +224,8 @@ clang++ -std=c++26 -freflection -fpattern-matching -fcontracts my_code.cpp
 ## Roadmap
 
 ### Tier 2 (Next)
-- [ ] Reflection CodeGen — emit LLVM IR for `std::meta::info` values
 - [ ] Reflection metafunctions: `is_type()`, `type_of()`, `identifier_of()`, `members_of()`
+- [ ] Reflection CodeGen — emit meaningful `i64` values (type indices, decl pointers) instead of `0`
 - [ ] Pattern matching destructuring: `auto [x, y]` patterns
 - [ ] Pattern matching guard lowering: `pattern if guard => result`
 - [ ] Contracts `if-then-trap` lowering with `__builtin_trap()`

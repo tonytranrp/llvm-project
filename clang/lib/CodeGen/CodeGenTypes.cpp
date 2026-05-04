@@ -623,7 +623,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 #define PLACEHOLDER_TYPE(Id, SingletonId) \
     case BuiltinType::Id:
 #include "clang/AST/BuiltinTypes.def"
-      llvm_unreachable("Unexpected placeholder builtin type!");
+      // MetaInfo (the last PLACEHOLDER_TYPE) maps to i64 for the MVP.
+      // All other placeholder types are unreachable in valid code.
+      if (cast<BuiltinType>(Ty)->getKind() == BuiltinType::MetaInfo)
+        ResultType = llvm::Type::getInt64Ty(getLLVMContext());
+      else
+        llvm_unreachable("Unexpected placeholder builtin type!");
     }
     break;
   }

@@ -40,6 +40,7 @@ ExprResult Parser::ParseMatchExpression() {
   SmallVector<ExprResult, 8> Patterns;
   SmallVector<ExprResult, 8> Results;
   SmallVector<SourceLocation, 8> ArrowLocs;
+  SmallVector<ExprResult, 8> Guards;
 
   // Parse pattern => expr pairs
   while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
@@ -49,6 +50,7 @@ ExprResult Parser::ParseMatchExpression() {
     //  - expression followed by =>
     //  - expression if guard followed by =>
     ExprResult Pattern;
+    ExprResult Guard;
 
     // Special case: wildcard _
     if (Tok.is(tok::identifier) && Tok.getIdentifierInfo()->isStr("_")) {
@@ -68,17 +70,14 @@ ExprResult Parser::ParseMatchExpression() {
     }
 
     // Parse optional guard: if condition
-    // TODO: Guard expressions are parsed but not yet used in the MVP lowering.
-    // They will be combined with the pattern condition: (scrutinee == pattern) && guard
+    // The guard is combined with the pattern condition: (scrutinee == pattern) && guard
     if (Tok.is(tok::kw_if)) {
       ConsumeToken(); // consume 'if'
-      ExprResult Guard = ParseAssignmentExpression();
+      Guard = ParseAssignmentExpression();
       if (Guard.isInvalid()) {
         SkipUntil(tok::r_brace, StopBeforeMatch);
         break;
       }
-      // TODO: Attach guard to the pattern for Sema
-      (void)Guard;
     }
 
     // Expect => (equalgreater token)
@@ -99,6 +98,7 @@ ExprResult Parser::ParseMatchExpression() {
     Patterns.push_back(Pattern);
     Results.push_back(Result);
     ArrowLocs.push_back(ArrowLoc);
+    Guards.push_back(Guard);
 
     // Optional comma separator
     if (Tok.is(tok::comma))
@@ -109,5 +109,6 @@ ExprResult Parser::ParseMatchExpression() {
   SourceLocation RBraceLoc = BraceT.getCloseLocation();
 
   return Actions.ActOnMatchExpr(MatchLoc, RParenLoc, LBraceLoc, RBraceLoc,
-                                Scrutinee.get(), Patterns, ArrowLocs, Results);
+                                Scrutinee.get(), Patterns, ArrowLocs, Results,
+                                Guards);
 }

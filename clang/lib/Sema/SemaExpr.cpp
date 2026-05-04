@@ -6461,6 +6461,10 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
   case BuiltinType::ArraySection:
   case BuiltinType::OMPArrayShaping:
   case BuiltinType::OMPIterator:
+    return true;
+
+  // MetaInfo is not a placeholder (excluded in isPlaceholderTypeKind),
+  // but in case this function is somehow reached, treat it as a valid type.
   case BuiltinType::MetaInfo:
     return false;
 
