@@ -18386,6 +18386,15 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_protected:
     MK = CXXReflectionMetafunctionExpr::MK_IsProtected;
     break;
+  case tok::kw_is_data_member:
+    MK = CXXReflectionMetafunctionExpr::MK_IsDataMember;
+    break;
+  case tok::kw_is_member_function:
+    MK = CXXReflectionMetafunctionExpr::MK_IsMemberFunction;
+    break;
+  case tok::kw_is_static:
+    MK = CXXReflectionMetafunctionExpr::MK_IsStatic;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18413,6 +18422,9 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
     case tok::kw_is_public: KwName = "is_public"; break;
     case tok::kw_is_private: KwName = "is_private"; break;
     case tok::kw_is_protected: KwName = "is_protected"; break;
+    case tok::kw_is_data_member: KwName = "is_data_member"; break;
+    case tok::kw_is_member_function: KwName = "is_member_function"; break;
+    case tok::kw_is_static: KwName = "is_static"; break;
     default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18479,13 +18491,106 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_IsPublic:
   case CXXReflectionMetafunctionExpr::MK_IsPrivate:
   case CXXReflectionMetafunctionExpr::MK_IsProtected:
-    // Access specifier queries return bool
+  case CXXReflectionMetafunctionExpr::MK_IsDataMember:
+  case CXXReflectionMetafunctionExpr::MK_IsMemberFunction:
+  case CXXReflectionMetafunctionExpr::MK_IsStatic:
+    // Access/member queries return bool
     ResultTy = Context.BoolTy;
     break;
   }
 
+  // Compute the compile-time boolean result for boolean-returning metafunctions.
+  // This enables static_assert and other constant-expression contexts.
+  bool ResultValue = false;
+  if (auto *RE = dyn_cast<CXXReflectExpr>(Arg->IgnoreParenImpCasts())) {
+    switch (MK) {
+    case CXXReflectionMetafunctionExpr::MK_IsType:
+      ResultValue = (RE->getReflectionKind() == CXXReflectExpr::RK_Type);
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsClass:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isRecordType();
+      } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<CXXRecordDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsFunction:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<FunctionDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsNamespace:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Namespace ||
+          RE->getReflectionKind() == CXXReflectExpr::RK_GlobalNamespace) {
+        ResultValue = true;
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsEnum:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isEnumeralType();
+      } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<EnumDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsPublic:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *ND = dyn_cast<NamedDecl>(D))
+            ResultValue = (ND->getAccess() == AS_public);
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsPrivate:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *ND = dyn_cast<NamedDecl>(D))
+            ResultValue = (ND->getAccess() == AS_private);
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsProtected:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *ND = dyn_cast<NamedDecl>(D))
+            ResultValue = (ND->getAccess() == AS_protected);
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsDataMember:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<FieldDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsMemberFunction:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+            ResultValue = !MD->isStatic();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsStatic:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+            ResultValue = MD->isStatic();
+          else if (auto *VD = dyn_cast<VarDecl>(D))
+            ResultValue = VD->isStaticDataMember();
+        }
+      }
+      break;
+    default:
+      break;
+    }
+  }
+
   return CXXReflectionMetafunctionExpr::Create(Context, MK, KwLoc, LParenLoc,
-                                               Arg, RParenLoc, ResultTy);
+                                               Arg, RParenLoc, ResultTy,
+                                               ResultValue);
 }
 
 ExprResult Sema::ActOnSpliceExpression(SourceLocation LSquareLoc,

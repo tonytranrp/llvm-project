@@ -107,7 +107,8 @@ ExprResult Parser::ParseReflectionMetafunction() {
   //        name_of(expr), members_of(expr), is_class(expr), is_function(expr),
   //        is_namespace(expr), is_enum(expr), parent_of(expr),
   //        size_of(expr), get_type(expr), is_public(expr), is_private(expr),
-  //        is_protected(expr)
+  //        is_protected(expr), is_data_member(expr), is_member_function(expr),
+  //        is_static(expr)
   assert((Tok.is(tok::kw_is_type) || Tok.is(tok::kw_type_of) ||
           Tok.is(tok::kw_identifier_of) || Tok.is(tok::kw_decl_of) ||
           Tok.is(tok::kw_name_of) || Tok.is(tok::kw_members_of) ||
@@ -115,7 +116,9 @@ ExprResult Parser::ParseReflectionMetafunction() {
           Tok.is(tok::kw_is_namespace) || Tok.is(tok::kw_is_enum) ||
           Tok.is(tok::kw_parent_of) || Tok.is(tok::kw_size_of) ||
           Tok.is(tok::kw_get_type) || Tok.is(tok::kw_is_public) ||
-          Tok.is(tok::kw_is_private) || Tok.is(tok::kw_is_protected)) &&
+          Tok.is(tok::kw_is_private) || Tok.is(tok::kw_is_protected) ||
+          Tok.is(tok::kw_is_data_member) || Tok.is(tok::kw_is_member_function) ||
+          Tok.is(tok::kw_is_static)) &&
          "Expected reflection metafunction keyword");
   assert(getLangOpts().Reflection && "Reflection not enabled");
 

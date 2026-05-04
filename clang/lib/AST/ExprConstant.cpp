@@ -15496,6 +15496,25 @@ public:
     return Success(E->getValue(), E);
   }
 
+  bool VisitCXXReflectionMetafunctionExpr(const CXXReflectionMetafunctionExpr *E) {
+    if (E->isBooleanMetafunction())
+      return Success(E->getResultValue(), E);
+    // For non-boolean metafunctions (size_of, etc.), evaluate the argument
+    // and produce a result. For size_of, compute the size of the reflected type.
+    if (E->getMetafunctionKind() == CXXReflectionMetafunctionExpr::MK_SizeOf) {
+      if (auto *RE = dyn_cast<CXXReflectExpr>(E->getArgument()->IgnoreParenImpCasts())) {
+        if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          QualType ReflectedTy = RE->getTypeOperand()->getType();
+          CharUnits Size = Info.Ctx.getTypeSizeInChars(ReflectedTy);
+          return Success(APSInt(APInt(Info.Ctx.getIntWidth(E->getType()),
+                                      Size.getQuantity()), true), E);
+        }
+      }
+    }
+    // For other metafunctions, fall back to evaluating the subexpression.
+    return ExprEvaluatorBase::VisitCXXReflectionMetafunctionExpr(E);
+  }
+
   bool VisitOpenACCAsteriskSizeExpr(const OpenACCAsteriskSizeExpr *E) {
     // This should not be evaluated during constant expr evaluation, as it
     // should always be in an unevaluated context (the args list of a 'gang' or

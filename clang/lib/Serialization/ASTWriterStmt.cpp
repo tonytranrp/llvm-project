@@ -502,6 +502,7 @@ void ASTStmtWriter::VisitCXXReflectionMetafunctionExpr(
     CXXReflectionMetafunctionExpr *E) {
   VisitExpr(E);
   Record.push_back(E->Kind);
+  Record.push_back(E->ResultValue ? 1 : 0);
   Record.AddSourceLocation(E->KwLoc);
   Record.AddSourceLocation(E->LParenLoc);
   Record.AddSourceLocation(E->RParenLoc);

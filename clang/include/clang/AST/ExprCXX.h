@@ -5655,6 +5655,12 @@ public:
     MK_IsPrivate,
     /// is_protected(expr) — returns bool indicating if the reflected entity is protected
     MK_IsProtected,
+    /// is_data_member(expr) — returns bool indicating if the reflection is of a data member
+    MK_IsDataMember,
+    /// is_member_function(expr) — returns bool indicating if the reflection is of a member function
+    MK_IsMemberFunction,
+    /// is_static(expr) — returns bool indicating if the reflected entity is static
+    MK_IsStatic,
   };
 
 private:
@@ -5663,10 +5669,13 @@ private:
   SourceLocation RParenLoc;
   Stmt *SubExprs[1]; // The argument expression
   MetafunctionKind Kind;
+  /// For boolean-returning metafunctions, stores the compile-time computed result.
+  bool ResultValue = false;
 
   CXXReflectionMetafunctionExpr(MetafunctionKind Kind, SourceLocation KwLoc,
                                 SourceLocation LParenLoc, Expr *Arg,
                                 SourceLocation RParenLoc, QualType ResultTy,
+                                bool ResultValue,
                                 ExprValueKind VK = VK_PRValue);
   CXXReflectionMetafunctionExpr(EmptyShell Empty);
 
@@ -5674,11 +5683,17 @@ public:
   static CXXReflectionMetafunctionExpr *
   Create(ASTContext &C, MetafunctionKind Kind, SourceLocation KwLoc,
          SourceLocation LParenLoc, Expr *Arg, SourceLocation RParenLoc,
-         QualType ResultTy);
+         QualType ResultTy, bool ResultValue = false);
   static CXXReflectionMetafunctionExpr *CreateEmpty(ASTContext &C);
 
   /// Returns the metafunction kind.
   MetafunctionKind getMetafunctionKind() const { return Kind; }
+
+  /// Returns the compile-time computed result for boolean-returning metafunctions.
+  bool getResultValue() const { return ResultValue; }
+
+  /// Returns true if this metafunction returns a boolean result.
+  bool isBooleanMetafunction() const;
 
   /// Returns the argument expression.
   Expr *getArgument() const {

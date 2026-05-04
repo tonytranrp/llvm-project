@@ -577,6 +577,7 @@ void ASTStmtReader::VisitCXXReflectionMetafunctionExpr(
   VisitExpr(E);
   unsigned Kind = Record.readInt();
   E->Kind = static_cast<CXXReflectionMetafunctionExpr::MetafunctionKind>(Kind);
+  E->ResultValue = Record.readInt() != 0;
   E->KwLoc = readSourceLocation();
   E->LParenLoc = readSourceLocation();
   E->RParenLoc = readSourceLocation();

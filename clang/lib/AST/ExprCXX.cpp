@@ -1968,10 +1968,11 @@ CXXReflectExpr *CXXReflectExpr::CreateEmpty(ASTContext &C) {
 
 CXXReflectionMetafunctionExpr::CXXReflectionMetafunctionExpr(
     MetafunctionKind Kind, SourceLocation KwLoc, SourceLocation LParenLoc,
-    Expr *Arg, SourceLocation RParenLoc, QualType ResultTy, ExprValueKind VK)
+    Expr *Arg, SourceLocation RParenLoc, QualType ResultTy, bool ResultValue,
+    ExprValueKind VK)
     : Expr(CXXReflectionMetafunctionExprClass, ResultTy, VK, OK_Ordinary),
       KwLoc(KwLoc), LParenLoc(LParenLoc), RParenLoc(RParenLoc),
-      SubExprs{Arg}, Kind(Kind) {
+      SubExprs{Arg}, Kind(Kind), ResultValue(ResultValue) {
   // Reflection metafunctions are value-dependent if their argument is.
   // For the MVP, these are always non-dependent since the argument is
   // always a CXXReflectExpr which produces MetaInfoTy.
@@ -1981,14 +1982,41 @@ CXXReflectionMetafunctionExpr::CXXReflectionMetafunctionExpr(
 CXXReflectionMetafunctionExpr::CXXReflectionMetafunctionExpr(EmptyShell Empty)
     : Expr(CXXReflectionMetafunctionExprClass, Empty) {}
 
+bool CXXReflectionMetafunctionExpr::isBooleanMetafunction() const {
+  switch (Kind) {
+  case MK_IsType:
+  case MK_IsClass:
+  case MK_IsFunction:
+  case MK_IsNamespace:
+  case MK_IsEnum:
+  case MK_IsPublic:
+  case MK_IsPrivate:
+  case MK_IsProtected:
+  case MK_IsDataMember:
+  case MK_IsMemberFunction:
+  case MK_IsStatic:
+    return true;
+  case MK_TypeOf:
+  case MK_IdentifierOf:
+  case MK_MembersOf:
+  case MK_DeclOf:
+  case MK_NameOf:
+  case MK_ParentOf:
+  case MK_SizeOf:
+  case MK_GetType:
+    return false;
+  }
+  llvm_unreachable("unexpected metafunction kind");
+}
+
 CXXReflectionMetafunctionExpr *
 CXXReflectionMetafunctionExpr::Create(ASTContext &C, MetafunctionKind Kind,
                                      SourceLocation KwLoc,
                                      SourceLocation LParenLoc, Expr *Arg,
                                      SourceLocation RParenLoc,
-                                     QualType ResultTy) {
+                                     QualType ResultTy, bool ResultValue) {
   return new (C) CXXReflectionMetafunctionExpr(Kind, KwLoc, LParenLoc, Arg,
-                                                RParenLoc, ResultTy);
+                                                RParenLoc, ResultTy, ResultValue);
 }
 
 CXXReflectionMetafunctionExpr *

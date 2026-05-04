@@ -1170,6 +1170,61 @@ public:
       }
       return Builder.getInt1(false);
     }
+    case CXXReflectionMetafunctionExpr::MK_IsDataMember: {
+      // is_data_member: check if the reflection is of a non-static data member.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            return Builder.getInt1(isa<FieldDecl>(D));
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      // Runtime fallback: check tag==1 (declaration) as approximation
+      if (ArgVal) {
+        Value *Shifted = Builder.CreateLShr(ArgVal, 60);
+        Value *TagOne = Builder.getInt64(1);
+        return Builder.CreateICmpEQ(Shifted, TagOne);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsMemberFunction: {
+      // is_member_function: check if the reflection is of a member function.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
+              return Builder.getInt1(!MD->isStatic());
+            }
+            return Builder.getInt1(false);
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsStatic: {
+      // is_static: check if the reflected entity is static.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            // Static member function
+            if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+              return Builder.getInt1(MD->isStatic());
+            // Static data member
+            if (auto *VD = dyn_cast<VarDecl>(D))
+              return Builder.getInt1(VD->isStaticDataMember());
+            // Namespace-scoped variables and free functions are "static" in
+            // the sense that they have no associated object
+            if (isa<FunctionDecl>(D) || isa<VarDecl>(D))
+              return Builder.getInt1(true);
+            return Builder.getInt1(false);
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
   }
