@@ -4557,6 +4557,14 @@ void Parser::ParseDeclarationSpecifiers(
       ParsePackIndexingType(DS);
       continue;
 
+    // C++26 reflection splice as type specifier: [: ^^type :]
+    case tok::l_splice:
+      if (getLangOpts().Reflection) {
+        ParseSpliceTypeSpecifier(DS);
+        continue;
+      }
+      goto DoneWithDeclSpec;
+
     case tok::annot_pragma_pack:
       HandlePragmaPack();
       continue;
@@ -5700,6 +5708,9 @@ bool Parser::isTypeSpecifierQualifier(const Token &Tok) {
     // Debugger support.
   case tok::kw___unknown_anytype:
 
+    // C++26 reflection splice type specifier
+  case tok::l_splice:
+
     // typedef-name
   case tok::annot_typename:
     return true;
@@ -5941,6 +5952,9 @@ bool Parser::isDeclarationSpecifier(
   case tok::annot_decltype:
   case tok::annot_pack_indexing_type:
   case tok::kw_constexpr:
+
+    // C++26 reflection splice type specifier.
+  case tok::l_splice:
 
     // C++20 consteval and constinit.
   case tok::kw_consteval:

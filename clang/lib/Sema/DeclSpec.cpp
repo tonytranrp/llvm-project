@@ -360,6 +360,7 @@ bool Declarator::isDeclarationOfFunction() const {
     case TST_decltype:
     case TST_typeof_unqualExpr:
     case TST_typeofExpr:
+    case TST_splice:
       if (Expr *E = DS.getRepAsExpr())
         return E->getType()->isFunctionType();
       return false;
@@ -585,6 +586,7 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_##Name:                                                   \
     return #Name;
 #include "clang/Basic/HLSLIntangibleTypes.def"
+  case DeclSpec::TST_splice:      return "[: ... :]";
   case DeclSpec::TST_error:       return "(error)";
   }
   llvm_unreachable("Unknown typespec!");

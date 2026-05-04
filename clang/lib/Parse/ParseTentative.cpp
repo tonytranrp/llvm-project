@@ -171,6 +171,7 @@ Parser::TPResult Parser::TryConsumeDeclarationSpecifier() {
     }
     [[fallthrough]];
   case tok::kw_typeof:
+  case tok::kw_typeof_unqual:
   case tok::kw___attribute:
 #define TRANSFORM_TYPE_TRAIT_DEF(_, Trait) case tok::kw___##Trait:
 #include "clang/Basic/TransformTypeTraits.def"
@@ -180,6 +181,14 @@ Parser::TPResult Parser::TryConsumeDeclarationSpecifier() {
       return TPResult::Error;
     ConsumeParen();
     if (!SkipUntil(tok::r_paren))
+      return TPResult::Error;
+    break;
+  }
+
+  case tok::l_splice: {
+    // [: expr :] splice type specifier
+    ConsumeToken();
+    if (!SkipUntil(tok::r_splice))
       return TPResult::Error;
     break;
   }
@@ -1503,6 +1512,7 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
   case tok::kw__Fract:
   case tok::kw__Sat:
   case tok::annot_pack_indexing_type:
+  case tok::l_splice:  // [: expr :] as type specifier
 #define GENERIC_IMAGE_TYPE(ImgType, Id) case tok::kw_##ImgType##_t:
 #include "clang/Basic/OpenCLImageTypes.def"
 #define HLSL_INTANGIBLE_TYPE(Name, Id, SingletonId) case tok::kw_##Name:
@@ -1587,6 +1597,7 @@ bool Parser::isCXXDeclarationSpecifierAType() {
     // typename-specifier
   case tok::annot_decltype:
   case tok::annot_pack_indexing_type:
+  case tok::l_splice:  // [: expr :] as type specifier
   case tok::annot_template_id:
   case tok::annot_typename:
   case tok::kw_typeof:

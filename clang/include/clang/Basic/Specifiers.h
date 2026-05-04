@@ -102,6 +102,7 @@ namespace clang {
 #define HLSL_INTANGIBLE_TYPE(Name, Id, SingletonId)                          \
     TST_##Name, // HLSL Intangible Types
 #include "clang/Basic/HLSLIntangibleTypes.def"
+    TST_splice,          // [: ... :] splice specifier
     TST_error // erroneous type
   };
 

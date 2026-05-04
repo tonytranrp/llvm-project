@@ -1386,6 +1386,22 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
 #include "clang/Basic/HLSLIntangibleTypes.def"
 
+  case DeclSpec::TST_splice: {
+    Expr *E = DS.getRepAsExpr();
+    assert(E && "Didn't get an expression for splice?");
+    if (auto *RE = dyn_cast<CXXReflectExpr>(E)) {
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        Result = RE->getTypeOperand()->getType();
+        break;
+      }
+    }
+    S.Diag(DS.getTypeSpecTypeLoc(), diag::err_splice_not_type)
+      << E->getSourceRange();
+    Result = Context.IntTy;
+    declarator.setInvalidType(true);
+    break;
+  }
+
   case DeclSpec::TST_error:
     Result = Context.IntTy;
     declarator.setInvalidType(true);

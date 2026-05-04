@@ -152,3 +152,38 @@ ExprResult Parser::ParseSpliceExpression() {
   return Actions.ActOnSpliceExpression(LSquareLoc, ReflExpr.get(),
                                         RSquareLoc);
 }
+
+/// Parse a splice as a type-specifier: [: expr :]
+/// This handles [: ^^int :] x; where the splice produces a type.
+SourceLocation Parser::ParseSpliceTypeSpecifier(DeclSpec &DS) {
+  assert(Tok.is(tok::l_splice) && "Expected [: for splice type specifier");
+  SourceLocation LSquareLoc = ConsumeToken(); // consume [:
+
+  // Parse the reflection expression inside the splice
+  ExprResult ReflExpr = ParseAssignmentExpression();
+  if (ReflExpr.isInvalid()) {
+    DS.SetTypeSpecError();
+    return LSquareLoc;
+  }
+
+  // Expect :]
+  if (!Tok.is(tok::r_splice)) {
+    Diag(Tok, diag::err_expected) << tok::r_splice;
+    DS.SetTypeSpecError();
+    return LSquareLoc;
+  }
+  SourceLocation RSquareLoc = ConsumeToken(); // consume :]
+
+  const char *PrevSpec = nullptr;
+  unsigned DiagID;
+  const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+  if (DS.SetTypeSpecType(DeclSpec::TST_splice, LSquareLoc, PrevSpec,
+                         DiagID, ReflExpr.get(), Policy)) {
+    Diag(LSquareLoc, DiagID) << PrevSpec;
+    DS.SetTypeSpecError();
+    return RSquareLoc;
+  }
+
+  DS.SetRangeEnd(RSquareLoc);
+  return RSquareLoc;
+}

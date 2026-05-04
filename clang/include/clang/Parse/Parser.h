@@ -5210,6 +5210,9 @@ private:
   /// ParseSpliceExpression - parses [: expr :] splice operator (P2996)
   ExprResult ParseSpliceExpression();
 
+  /// ParseSpliceTypeSpecifier - parses [: expr :] as a type-specifier
+  SourceLocation ParseSpliceTypeSpecifier(DeclSpec &DS);
+
   //
   //
   // -------------------------------------------------------------------------

@@ -14253,4 +14253,6 @@ def err_reflection_metafunction_type_of_not_decl : Error<
     "type_of requires a reflection of a declaration">;
 def err_reflection_metafunction_identifier_of_no_name : Error<
     "reflected entity has no identifier">;
+def err_splice_not_type : Error<
+    "splice expression does not reflect a type">;
 } // end of sema component.

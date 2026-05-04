@@ -284,6 +284,7 @@ public:
   static const TST TST_decltype_auto = clang::TST_decltype_auto;
   static const TST TST_typename_pack_indexing =
       clang::TST_typename_pack_indexing;
+  static const TST TST_splice = clang::TST_splice;
 #define TRANSFORM_TYPE_TRAIT_DEF(_, Trait)                                     \
   static const TST TST_##Trait = clang::TST_##Trait;
 #include "clang/Basic/TransformTypeTraits.def"
@@ -440,7 +441,7 @@ private:
   }
   static bool isExprRep(TST T) {
     return T == TST_typeofExpr || T == TST_typeof_unqualExpr ||
-           T == TST_decltype || T == TST_bitint;
+           T == TST_decltype || T == TST_bitint || T == TST_splice;
   }
   static bool isTemplateIdRep(TST T) {
     return (T == TST_auto || T == TST_decltype_auto);
