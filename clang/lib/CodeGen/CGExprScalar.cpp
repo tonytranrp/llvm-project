@@ -860,8 +860,20 @@ public:
       // Full impl would produce a string representation
       return ArgVal;
     }
+    case CXXReflectionMetafunctionExpr::MK_MembersOf: {
+      // MVP: not yet fully implemented; pass through
+      return ArgVal;
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
+  }
+
+  Value *VisitCXXSpliceExpr(const CXXSpliceExpr *E) {
+    // For the MVP, splice expressions on runtime/variable reflection values
+    // emit the underlying i64 value. When Sema can resolve the splice at
+    // compile time ([: ^^int :]), it lowers directly, so this path is only
+    // reached for variable-based splices.
+    return Visit(E->getReflectionExpr());
   }
 
   // Binary Operators.
