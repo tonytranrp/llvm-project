@@ -219,6 +219,7 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::RequiresExprClass:
   case Expr::CXXReflectExprClass:
   case Expr::CXXReflectionMetafunctionExprClass:
+  case Expr::CXXSpliceExprClass:
     return Cl::CL_PRValue;
 
   case Expr::EmbedExprClass:

@@ -214,23 +214,25 @@ clang++ -std=c++26 -freflection -fpattern-matching -fcontracts my_code.cpp
 
 ### Architecture
 
-- **Reflection**: `^^` lexed as `tok::caretcaret`, parsed in `ParseReflect.cpp`, produces `CXXReflectExpr` with `ReflectionKind` (RK_Type, RK_Declaration, RK_GlobalNamespace). Result type is `std::meta::info` (a builtin type mapped to `i64` in LLVM IR). `auto` deduction works: `auto r = ^^int;` deduces to `std::meta::info`.
-- **Pattern Matching**: `match` is a keyword (gated by `LangOpts.PatternMatching`), `=>` is `tok::equalgreater`. Parsed in `ParsePatternMatching.cpp`, lowered to ternary chains in `SemaPatternMatching.cpp`.
-- **Contracts**: `contract_assert` is a keyword (gated by `LangOpts.Contracts`). Parsed in `ParseStmt.cpp`, lowered to expression statement in `SemaPatternMatching.cpp`.
-- **Keyword sharing**: `match` and `contract_assert` share the `KEYPATTERNMATCHING` bit (0x80000000) since they never conflict — enabled by their respective LangOpts.
+- **Reflection**: `^^` lexed as `tok::caretcaret`, parsed in `ParseReflect.cpp`, produces `CXXReflectExpr` with `ReflectionKind` (RK_Type, RK_Declaration, RK_Globalnamespace). Result type is `std::meta::info` (a builtin type mapped to `i64` in LLVM IR). `auto` deduction works: `auto r = ^^int;` deduces to `std::meta::info`.
+- **Reflection Metafunctions**: `__builtin_meta_is_type(^^T)` folds to `true`/`false` at compile time. `__builtin_meta_members_of(^^Struct)` counts fields and emits as `i64` constant. `__builtin_meta_type_of(^^T)` and `__builtin_meta_identifier_of(^^T)` are MVP placeholders.
+- **Pattern Matching**: `match` is a keyword (gated by `LangOpts.PatternMatching`), `=>` is `tok::equalgreater`. Parsed in `ParsePatternMatching.cpp`, lowered to ternary chains in `SemaPatternMatching.cpp`. Guard expressions (`pattern if guard => result`) are fully lowered with `&&` conjunction.
+- **Contracts**: `contract_assert` is a keyword (gated by `LangOpts.Contracts`). Parsed in `ParseStmt.cpp`, lowered to `if-then-trap` pattern: `if (!(cond)) __builtin_trap();`. No `-Wunused-comparison` warning.
 
 ---
 
 ## Roadmap
 
-### Tier 2 (Next)
-- [ ] Reflection metafunctions: `is_type()`, `type_of()`, `identifier_of()`, `members_of()`
-- [ ] Reflection CodeGen — emit meaningful `i64` values (type indices, decl pointers) instead of `0`
+### Tier 2 (In Progress)
+- [x] Reflection metafunctions: `is_type()`, `type_of()`, `identifier_of()`, `members_of()` ✅
+- [x] Pattern matching guard lowering: `pattern if guard => result` ✅
+- [x] Contracts `if-then-trap` lowering with `__builtin_trap()` ✅
+- [ ] Reflection splice operator `[: refl :]`
 - [ ] Pattern matching destructuring: `auto [x, y]` patterns
-- [ ] Pattern matching guard lowering: `pattern if guard => result`
-- [ ] Contracts `if-then-trap` lowering with `__builtin_trap()`
+- [ ] Pattern matching type patterns: `<int>` matching
 - [ ] Contracts `pre`/`post` on function declarations
 - [ ] `^^namespace_name` support
+- [ ] Reflection CodeGen — emit meaningful `i64` values (type indices, decl pointers) instead of `0`
 
 ### Tier 3 (Future)
 - [ ] Reflection on templates and concepts

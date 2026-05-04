@@ -1996,6 +1996,33 @@ CXXReflectionMetafunctionExpr::CreateEmpty(ASTContext &C) {
   return new (C) CXXReflectionMetafunctionExpr(EmptyShell());
 }
 
+CXXSpliceExpr::CXXSpliceExpr(SourceLocation LSpliceLoc,
+                             Expr *ReflectionExpr,
+                             SourceLocation RSpliceLoc, QualType ResultTy,
+                             ExprValueKind VK)
+    : Expr(CXXSpliceExprClass, ResultTy, VK, OK_Ordinary),
+      LSpliceLoc(LSpliceLoc), RSpliceLoc(RSpliceLoc) {
+  SubExprs[0] = ReflectionExpr;
+  // Splice expressions are non-dependent in the MVP since they always
+  // operate on a known reflection value.
+  setDependence(ExprDependence::None);
+}
+
+CXXSpliceExpr::CXXSpliceExpr(EmptyShell Empty)
+    : Expr(CXXSpliceExprClass, Empty) {}
+
+CXXSpliceExpr *CXXSpliceExpr::Create(ASTContext &C, SourceLocation LSpliceLoc,
+                                     Expr *ReflectionExpr,
+                                     SourceLocation RSpliceLoc,
+                                     QualType ResultTy) {
+  return new (C)
+      CXXSpliceExpr(LSpliceLoc, ReflectionExpr, RSpliceLoc, ResultTy);
+}
+
+CXXSpliceExpr *CXXSpliceExpr::CreateEmpty(ASTContext &C) {
+  return new (C) CXXSpliceExpr(EmptyShell());
+}
+
 CUDAKernelCallExpr::CUDAKernelCallExpr(Expr *Fn, CallExpr *Config,
                                        ArrayRef<Expr *> Args, QualType Ty,
                                        ExprValueKind VK, SourceLocation RP,

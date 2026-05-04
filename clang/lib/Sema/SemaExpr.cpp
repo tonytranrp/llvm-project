@@ -18280,6 +18280,52 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
                                                Arg, RParenLoc, ResultTy);
 }
 
+ExprResult Sema::ActOnSpliceExpression(SourceLocation LSquareLoc,
+                                        Expr *ReflExpr,
+                                        SourceLocation RSquareLoc) {
+  if (!getLangOpts().Reflection) {
+    Diag(LSquareLoc, diag::err_reflection_required);
+    return ExprError();
+  }
+
+  // The argument must be a reflection value (std::meta::info / MetaInfoTy)
+  QualType ArgTy = ReflExpr->getType();
+  QualType MetaInfoTy = Context.MetaInfoTy.isNull() ? Context.IntTy
+                                                     : (QualType)Context.MetaInfoTy;
+  if (!Context.hasSameUnqualifiedType(ArgTy, MetaInfoTy)) {
+    Diag(ReflExpr->getBeginLoc(), diag::err_reflection_metafunction_arg)
+        << "splice";
+    return ExprError();
+  }
+
+  // MVP: If the argument is a CXXReflectExpr with RK_Type,
+  // we can splice it back to the original type.
+  // [: ^^int :] -> int
+  if (auto *RE = dyn_cast<CXXReflectExpr>(ReflExpr->IgnoreParenImpCasts())) {
+    if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+      if (auto *TSI = RE->getTypeOperand()) {
+        QualType SplicedType = TSI->getType();
+        // Return a DeclRefExpr or TypeRefExpr for the spliced type.
+        // For MVP, just return the original type as an expression.
+        // The splice in a type context would be the type itself;
+        // in an expression context, we need a value.
+        // For now, return a default-constructed value of the spliced type.
+        if (SplicedType->isIntegralOrEnumerationType()) {
+          return ActOnIntegerConstant(LSquareLoc, 0);
+        }
+        // For struct types, we can't construct a default value easily in MVP.
+        // Return an OpaqueValueExpr of the spliced type.
+        return new (Context) OpaqueValueExpr(LSquareLoc, SplicedType,
+                                             VK_PRValue, OK_Ordinary, ReflExpr);
+      }
+    }
+  }
+
+  // Fallback: return MetaInfoTy as the splice result (opaque)
+  return new (Context) OpaqueValueExpr(LSquareLoc, MetaInfoTy,
+                                        VK_PRValue, OK_Ordinary, ReflExpr);
+}
+
 namespace {
 
 const DeclRefExpr *CheckPossibleDeref(Sema &S, const Expr *PossibleDeref) {

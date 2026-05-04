@@ -559,6 +559,13 @@ void ASTStmtReader::VisitCXXReflectionMetafunctionExpr(
   E->SubExprs[0] = Record.readSubStmt();
 }
 
+void ASTStmtReader::VisitCXXSpliceExpr(CXXSpliceExpr *E) {
+  VisitExpr(E);
+  E->LSpliceLoc = readSourceLocation();
+  E->RSpliceLoc = readSourceLocation();
+  E->SubExprs[0] = Record.readSubStmt();
+}
+
 void ASTStmtReader::VisitSYCLKernelCallStmt(SYCLKernelCallStmt *S) {
   VisitStmt(S);
   S->setOriginalStmt(cast<CompoundStmt>(Record.readSubStmt()));
@@ -4614,6 +4621,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     }
     case EXPR_REFLECTION_METAFUNCTION: {
       S = CXXReflectionMetafunctionExpr::CreateEmpty(Context);
+      break;
+    }
+    case EXPR_SPLICE: {
+      S = CXXSpliceExpr::CreateEmpty(Context);
       break;
     }
     }

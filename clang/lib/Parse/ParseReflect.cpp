@@ -129,3 +129,26 @@ ExprResult Parser::ParseReflectionMetafunction() {
   return Actions.ActOnReflectionMetafunction(KwLoc, KwKind, LParenLoc,
                                               Arg.get(), RParenLoc);
 }
+
+/// Parse a splice expression: [: expr :]
+/// This is the P2996 splice operator that turns a reflection back into
+/// a type or expression.
+ExprResult Parser::ParseSpliceExpression() {
+  assert(Tok.is(tok::l_splice) && "Expected [: for splice");
+  SourceLocation LSquareLoc = ConsumeToken(); // consume [:
+
+  // Parse the reflection expression inside the splice
+  ExprResult ReflExpr = ParseAssignmentExpression();
+  if (ReflExpr.isInvalid())
+    return ExprError();
+
+  // Expect :]
+  if (!Tok.is(tok::r_splice)) {
+    Diag(Tok, diag::err_expected) << tok::r_splice;
+    return ExprError();
+  }
+  SourceLocation RSquareLoc = ConsumeToken(); // consume :]
+
+  return Actions.ActOnSpliceExpression(LSquareLoc, ReflExpr.get(),
+                                        RSquareLoc);
+}

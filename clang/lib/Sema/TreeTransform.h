@@ -13201,6 +13201,13 @@ ExprResult TreeTransform<Derived>::TransformCXXReflectionMetafunctionExpr(
       Arg.get(), E->getRParenLoc());
 }
 
+template <typename Derived>
+ExprResult TreeTransform<Derived>::TransformCXXSpliceExpr(CXXSpliceExpr *E) {
+  // TODO(reflection): Implement splice transform
+  // For now, return the expression as-is (no template-dependent splicing)
+  return E;
+}
+
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformPredefinedExpr(PredefinedExpr *E) {

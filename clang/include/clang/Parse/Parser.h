@@ -5195,6 +5195,9 @@ private:
   /// identifier_of(expr)
   ExprResult ParseReflectionMetafunction();
 
+  /// ParseSpliceExpression - parses [: expr :] splice operator (P2996)
+  ExprResult ParseSpliceExpression();
+
   //
   //
   // -------------------------------------------------------------------------

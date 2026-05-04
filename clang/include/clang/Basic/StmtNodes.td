@@ -184,6 +184,7 @@ def RequiresExpr : StmtNode<Expr>;
 // C++26 reflection
 def CXXReflectExpr : StmtNode<Expr>;
 def CXXReflectionMetafunctionExpr : StmtNode<Expr>;
+def CXXSpliceExpr : StmtNode<Expr>;
 
 // Pattern matching and contracts extensions are implemented as builtins
 // and lowered AST nodes for the initial MVP. Dedicated StmtNode entries

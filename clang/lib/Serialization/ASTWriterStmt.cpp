@@ -494,6 +494,14 @@ void ASTStmtWriter::VisitCXXReflectionMetafunctionExpr(
   Code = serialization::EXPR_REFLECTION_METAFUNCTION;
 }
 
+void ASTStmtWriter::VisitCXXSpliceExpr(CXXSpliceExpr *E) {
+  VisitExpr(E);
+  Record.AddSourceLocation(E->LSpliceLoc);
+  Record.AddSourceLocation(E->RSpliceLoc);
+  Record.AddStmt(E->SubExprs[0]);
+  Code = serialization::EXPR_SPLICE;
+}
+
 void ASTStmtWriter::VisitDependentCoawaitExpr(DependentCoawaitExpr *E) {
   VisitExpr(E);
   Record.AddSourceLocation(E->getKeywordLoc());

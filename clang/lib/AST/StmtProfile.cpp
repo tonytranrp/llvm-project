@@ -2221,6 +2221,10 @@ void StmtProfiler::VisitCXXReflectionMetafunctionExpr(
   VisitExpr(E);
 }
 
+void StmtProfiler::VisitCXXSpliceExpr(const CXXSpliceExpr *E) {
+  VisitExpr(E);
+}
+
 void
 StmtProfiler::VisitCXXScalarValueInitExpr(const CXXScalarValueInitExpr *S) {
   VisitExpr(S);

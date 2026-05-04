@@ -14955,6 +14955,10 @@ public:
                                          Expr *Arg,
                                          SourceLocation RParenLoc);
 
+  // Splice operator Sema action
+  ExprResult ActOnSpliceExpression(SourceLocation LSquareLoc, Expr *ReflExpr,
+                                    SourceLocation RSquareLoc);
+
   // Pattern matching Sema actions
   ExprResult ActOnMatchExpr(SourceLocation MatchLoc, SourceLocation RParenLoc,
                             SourceLocation LBraceLoc, SourceLocation RBraceLoc,

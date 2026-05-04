@@ -5012,6 +5012,11 @@ recurse:
     assert(false && "unimplemented");
     break;
   }
+  case Expr::CXXSpliceExprClass: {
+    // TODO(Reflection): implement mangling for splice expressions
+    assert(false && "unimplemented");
+    break;
+  }
 
   // FIXME: invent manglings for all these.
   case Expr::BlockExprClass:

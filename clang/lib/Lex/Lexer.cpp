@@ -4092,7 +4092,13 @@ LexStart:
     Kind = tok::question;
     break;
   case '[':
-    Kind = tok::l_square;
+    Char = getCharAndSize(CurPtr, SizeTmp);
+    if (LangOpts.Reflection && Char == ':') {
+      Kind = tok::l_splice;
+      CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
+    } else {
+      Kind = tok::l_square;
+    }
     break;
   case ']':
     Kind = tok::r_square;
@@ -4409,7 +4415,10 @@ LexStart:
     break;
   case ':':
     Char = getCharAndSize(CurPtr, SizeTmp);
-    if (LangOpts.Digraphs && Char == '>') {
+    if (LangOpts.Reflection && Char == ']') {
+      Kind = tok::r_splice;
+      CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
+    } else if (LangOpts.Digraphs && Char == '>') {
       Kind = tok::r_square; // ':>' -> ']'
       CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
     } else if (Char == ':') {

@@ -5663,6 +5663,52 @@ public:
   }
 };
 
+/// Represents a C++26 splice expression [: refl :].
+/// The splice operator takes a reflection value and produces the
+/// corresponding language construct (type, expression, etc.).
+/// In the MVP, this is primarily used with typename[: refl :] to
+/// produce a type from a type reflection.
+class CXXSpliceExpr : public Expr {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+
+  SourceLocation LSpliceLoc;
+  SourceLocation RSpliceLoc;
+  Stmt *SubExprs[1]; // The reflection expression
+
+  CXXSpliceExpr(SourceLocation LSpliceLoc, Expr *ReflectionExpr,
+                SourceLocation RSpliceLoc, QualType ResultTy,
+                ExprValueKind VK = VK_PRValue);
+  CXXSpliceExpr(EmptyShell Empty);
+
+public:
+  static CXXSpliceExpr *Create(ASTContext &C, SourceLocation LSpliceLoc,
+                               Expr *ReflectionExpr,
+                               SourceLocation RSpliceLoc, QualType ResultTy);
+  static CXXSpliceExpr *CreateEmpty(ASTContext &C);
+
+  /// Returns the reflection expression being spliced.
+  Expr *getReflectionExpr() const { return cast<Expr>(SubExprs[0]); }
+
+  SourceLocation getLSpliceLoc() const { return LSpliceLoc; }
+  SourceLocation getRSpliceLoc() const { return RSpliceLoc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return LSpliceLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RSpliceLoc; }
+
+  child_range children() {
+    return child_range(SubExprs, SubExprs + 1);
+  }
+
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + 1);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXSpliceExprClass;
+  }
+};
+
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_EXPRCXX_H

@@ -2630,6 +2630,12 @@ void StmtPrinter::VisitCXXReflectionMetafunctionExpr(
   OS << ')';
 }
 
+void StmtPrinter::VisitCXXSpliceExpr(CXXSpliceExpr *S) {
+  OS << "[: ";
+  PrintExpr(S->getReflectionExpr());
+  OS << " :]";
+}
+
 void StmtPrinter::VisitCXXDependentScopeMemberExpr(
                                          CXXDependentScopeMemberExpr *Node) {
   if (!Node->isImplicitAccess()) {

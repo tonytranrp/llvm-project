@@ -1587,6 +1587,13 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       goto ParseIdentifier;
     }
     goto ExpectedExpression;
+  case tok::l_splice:
+    // C++26 splice operator: [: expr :]
+    if (getLangOpts().Reflection) {
+      Res = ParseSpliceExpression();
+      break;
+    }
+    goto ExpectedExpression;
   case tok::l_square:
     if (getLangOpts().CPlusPlus) {
       if (getLangOpts().ObjC) {
