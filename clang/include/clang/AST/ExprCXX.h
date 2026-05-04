@@ -5685,6 +5685,36 @@ public:
     MK_IsDestructor,
     /// is_empty(expr) — returns bool indicating if the reflected class is empty
     MK_IsEmpty,
+    /// is_enumerator(expr) — returns bool indicating if the reflected entity is an enumerator
+    MK_IsEnumerator,
+    /// is_type_alias(expr) — returns bool indicating if the reflection is a type alias
+    MK_IsTypeAlias,
+    /// is_variable(expr) — returns bool indicating if the reflected entity is a variable
+    MK_IsVariable,
+    /// is_union(expr) — returns bool indicating if the reflected type is a union
+    MK_IsUnion,
+    /// is_struct(expr) — returns bool indicating if the reflected type is a struct
+    MK_IsStruct,
+    /// has_default_member_initializer(expr) — returns bool indicating if the member has a default initializer
+    MK_HasDefaultMemberInitializer,
+    /// is_lvalue_reference(expr) — returns bool indicating if the reflected type is an lvalue reference
+    MK_IsLvalueReference,
+    /// is_rvalue_reference(expr) — returns bool indicating if the reflected type is an rvalue reference
+    MK_IsRvalueReference,
+    /// is_pointer(expr) — returns bool indicating if the reflected type is a pointer
+    MK_IsPointer,
+    /// is_arithmetic(expr) — returns bool indicating if the reflected type is arithmetic
+    MK_IsArithmetic,
+    /// is_abstract(expr) — returns bool indicating if the reflected class is abstract
+    MK_IsAbstract,
+    /// is_final(expr) — returns bool indicating if the reflected class is final
+    MK_IsFinal,
+    /// is_literal_type(expr) — returns bool indicating if the reflected type is a literal type
+    MK_IsLiteralType,
+    /// is_signed(expr) — returns bool indicating if the reflected type is signed
+    MK_IsSigned,
+    /// is_unsigned(expr) — returns bool indicating if the reflected type is unsigned
+    MK_IsUnsigned,
   };
 
 private:

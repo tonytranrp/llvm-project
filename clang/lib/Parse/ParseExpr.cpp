@@ -1231,6 +1231,21 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
   case tok::kw_is_constructor:
   case tok::kw_is_destructor:
   case tok::kw_is_empty:
+  case tok::kw_is_enumerator:
+  case tok::kw_is_type_alias:
+  case tok::kw_is_variable:
+  case tok::kw_is_union:
+  case tok::kw_is_struct:
+  case tok::kw_has_default_member_initializer:
+  case tok::kw_is_lvalue_reference:
+  case tok::kw_is_rvalue_reference:
+  case tok::kw_is_pointer:
+  case tok::kw_is_arithmetic:
+  case tok::kw_is_abstract:
+  case tok::kw_is_final:
+  case tok::kw_is_literal_type:
+  case tok::kw_is_signed:
+  case tok::kw_is_unsigned:
   case tok::kw_members_of: {
     if (!getLangOpts().Reflection)
       break;

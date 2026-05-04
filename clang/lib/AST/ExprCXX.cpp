@@ -2006,6 +2006,21 @@ bool CXXReflectionMetafunctionExpr::isBooleanMetafunction() const {
   case MK_IsConstructor:
   case MK_IsDestructor:
   case MK_IsEmpty:
+  case MK_IsEnumerator:
+  case MK_IsTypeAlias:
+  case MK_IsVariable:
+  case MK_IsUnion:
+  case MK_IsStruct:
+  case MK_HasDefaultMemberInitializer:
+  case MK_IsLvalueReference:
+  case MK_IsRvalueReference:
+  case MK_IsPointer:
+  case MK_IsArithmetic:
+  case MK_IsAbstract:
+  case MK_IsFinal:
+  case MK_IsLiteralType:
+  case MK_IsSigned:
+  case MK_IsUnsigned:
     return true;
   case MK_TypeOf:
   case MK_IdentifierOf:

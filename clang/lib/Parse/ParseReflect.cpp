@@ -111,7 +111,13 @@ ExprResult Parser::ParseReflectionMetafunction() {
   //        is_static(expr), is_inline(expr), is_virtual(expr), is_const(expr),
   //        is_volatile(expr), offset_of(expr), has_parent(expr),
   //        is_template(expr), is_explicit(expr), is_noexcept(expr),
-  //        is_constructor(expr), is_destructor(expr), is_empty(expr)
+  //        is_constructor(expr), is_destructor(expr), is_empty(expr),
+  //        is_enumerator(expr), is_type_alias(expr), is_variable(expr),
+  //        is_union(expr), is_struct(expr), has_default_member_initializer(expr),
+  //        is_lvalue_reference(expr), is_rvalue_reference(expr),
+  //        is_pointer(expr), is_arithmetic(expr), is_abstract(expr),
+  //        is_final(expr), is_literal_type(expr), is_signed(expr),
+  //        is_unsigned(expr)
   assert((Tok.is(tok::kw_is_type) || Tok.is(tok::kw_type_of) ||
           Tok.is(tok::kw_identifier_of) || Tok.is(tok::kw_decl_of) ||
           Tok.is(tok::kw_name_of) || Tok.is(tok::kw_members_of) ||
@@ -127,7 +133,15 @@ ExprResult Parser::ParseReflectionMetafunction() {
           Tok.is(tok::kw_has_parent) || Tok.is(tok::kw_is_template) ||
           Tok.is(tok::kw_is_explicit) || Tok.is(tok::kw_is_noexcept) ||
           Tok.is(tok::kw_is_constructor) || Tok.is(tok::kw_is_destructor) ||
-          Tok.is(tok::kw_is_empty)) &&
+          Tok.is(tok::kw_is_empty) || Tok.is(tok::kw_is_enumerator) ||
+          Tok.is(tok::kw_is_type_alias) || Tok.is(tok::kw_is_variable) ||
+          Tok.is(tok::kw_is_union) || Tok.is(tok::kw_is_struct) ||
+          Tok.is(tok::kw_has_default_member_initializer) ||
+          Tok.is(tok::kw_is_lvalue_reference) || Tok.is(tok::kw_is_rvalue_reference) ||
+          Tok.is(tok::kw_is_pointer) || Tok.is(tok::kw_is_arithmetic) ||
+          Tok.is(tok::kw_is_abstract) || Tok.is(tok::kw_is_final) ||
+          Tok.is(tok::kw_is_literal_type) || Tok.is(tok::kw_is_signed) ||
+          Tok.is(tok::kw_is_unsigned)) &&
          "Expected reflection metafunction keyword");
   assert(getLangOpts().Reflection && "Reflection not enabled");
 

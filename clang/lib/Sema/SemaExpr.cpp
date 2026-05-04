@@ -18471,6 +18471,51 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_empty:
     MK = CXXReflectionMetafunctionExpr::MK_IsEmpty;
     break;
+  case tok::kw_is_enumerator:
+    MK = CXXReflectionMetafunctionExpr::MK_IsEnumerator;
+    break;
+  case tok::kw_is_type_alias:
+    MK = CXXReflectionMetafunctionExpr::MK_IsTypeAlias;
+    break;
+  case tok::kw_is_variable:
+    MK = CXXReflectionMetafunctionExpr::MK_IsVariable;
+    break;
+  case tok::kw_is_union:
+    MK = CXXReflectionMetafunctionExpr::MK_IsUnion;
+    break;
+  case tok::kw_is_struct:
+    MK = CXXReflectionMetafunctionExpr::MK_IsStruct;
+    break;
+  case tok::kw_has_default_member_initializer:
+    MK = CXXReflectionMetafunctionExpr::MK_HasDefaultMemberInitializer;
+    break;
+  case tok::kw_is_lvalue_reference:
+    MK = CXXReflectionMetafunctionExpr::MK_IsLvalueReference;
+    break;
+  case tok::kw_is_rvalue_reference:
+    MK = CXXReflectionMetafunctionExpr::MK_IsRvalueReference;
+    break;
+  case tok::kw_is_pointer:
+    MK = CXXReflectionMetafunctionExpr::MK_IsPointer;
+    break;
+  case tok::kw_is_arithmetic:
+    MK = CXXReflectionMetafunctionExpr::MK_IsArithmetic;
+    break;
+  case tok::kw_is_abstract:
+    MK = CXXReflectionMetafunctionExpr::MK_IsAbstract;
+    break;
+  case tok::kw_is_final:
+    MK = CXXReflectionMetafunctionExpr::MK_IsFinal;
+    break;
+  case tok::kw_is_literal_type:
+    MK = CXXReflectionMetafunctionExpr::MK_IsLiteralType;
+    break;
+  case tok::kw_is_signed:
+    MK = CXXReflectionMetafunctionExpr::MK_IsSigned;
+    break;
+  case tok::kw_is_unsigned:
+    MK = CXXReflectionMetafunctionExpr::MK_IsUnsigned;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18513,6 +18558,21 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_constructor: KwName = "is_constructor"; break;
   case tok::kw_is_destructor: KwName = "is_destructor"; break;
   case tok::kw_is_empty: KwName = "is_empty"; break;
+  case tok::kw_is_enumerator: KwName = "is_enumerator"; break;
+  case tok::kw_is_type_alias: KwName = "is_type_alias"; break;
+  case tok::kw_is_variable: KwName = "is_variable"; break;
+  case tok::kw_is_union: KwName = "is_union"; break;
+  case tok::kw_is_struct: KwName = "is_struct"; break;
+  case tok::kw_has_default_member_initializer: KwName = "has_default_member_initializer"; break;
+  case tok::kw_is_lvalue_reference: KwName = "is_lvalue_reference"; break;
+  case tok::kw_is_rvalue_reference: KwName = "is_rvalue_reference"; break;
+  case tok::kw_is_pointer: KwName = "is_pointer"; break;
+  case tok::kw_is_arithmetic: KwName = "is_arithmetic"; break;
+  case tok::kw_is_abstract: KwName = "is_abstract"; break;
+  case tok::kw_is_final: KwName = "is_final"; break;
+  case tok::kw_is_literal_type: KwName = "is_literal_type"; break;
+  case tok::kw_is_signed: KwName = "is_signed"; break;
+  case tok::kw_is_unsigned: KwName = "is_unsigned"; break;
   default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18593,7 +18653,22 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_IsConstructor:
   case CXXReflectionMetafunctionExpr::MK_IsDestructor:
   case CXXReflectionMetafunctionExpr::MK_IsEmpty:
-    // Access/member queries return bool
+  case CXXReflectionMetafunctionExpr::MK_IsEnumerator:
+  case CXXReflectionMetafunctionExpr::MK_IsTypeAlias:
+  case CXXReflectionMetafunctionExpr::MK_IsVariable:
+  case CXXReflectionMetafunctionExpr::MK_IsUnion:
+  case CXXReflectionMetafunctionExpr::MK_IsStruct:
+  case CXXReflectionMetafunctionExpr::MK_HasDefaultMemberInitializer:
+  case CXXReflectionMetafunctionExpr::MK_IsLvalueReference:
+  case CXXReflectionMetafunctionExpr::MK_IsRvalueReference:
+  case CXXReflectionMetafunctionExpr::MK_IsPointer:
+  case CXXReflectionMetafunctionExpr::MK_IsArithmetic:
+  case CXXReflectionMetafunctionExpr::MK_IsAbstract:
+  case CXXReflectionMetafunctionExpr::MK_IsFinal:
+  case CXXReflectionMetafunctionExpr::MK_IsLiteralType:
+  case CXXReflectionMetafunctionExpr::MK_IsSigned:
+  case CXXReflectionMetafunctionExpr::MK_IsUnsigned:
+    // Access/member/type queries return bool
     ResultTy = Context.BoolTy;
     break;
   case CXXReflectionMetafunctionExpr::MK_OffsetOf:
@@ -18782,6 +18857,89 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
       if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
         if (auto *RD = RE->getTypeOperand()->getType()->getAsCXXRecordDecl())
           ResultValue = RD->isEmpty();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsEnumerator:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<EnumConstantDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsTypeAlias:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isTypedefNameType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsVariable:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<VarDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsUnion:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isUnionType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsStruct:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *RD = RE->getTypeOperand()->getType()->getAsCXXRecordDecl())
+          ResultValue = RD->isStruct();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_HasDefaultMemberInitializer:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *FD = dyn_cast<FieldDecl>(D))
+            ResultValue = FD->hasInClassInitializer();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsLvalueReference:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isLValueReferenceType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsRvalueReference:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isRValueReferenceType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsPointer:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isPointerType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsArithmetic:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isArithmeticType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsAbstract:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *RD = RE->getTypeOperand()->getType()->getAsCXXRecordDecl())
+          ResultValue = RD->isAbstract();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsFinal:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *RD = RE->getTypeOperand()->getType()->getAsCXXRecordDecl())
+          ResultValue = RD->hasAttr<FinalAttr>();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsLiteralType:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isLiteralType(Context);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsSigned:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isSignedIntegerType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsUnsigned:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        ResultValue = RE->getTypeOperand()->getType()->isUnsignedIntegerType();
       }
       break;
     default:
