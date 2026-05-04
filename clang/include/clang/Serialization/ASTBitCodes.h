@@ -1945,6 +1945,7 @@ enum StmtCode {
 
   // Reflection
   EXPR_REFLECT,
+  EXPR_REFLECTION_METAFUNCTION,
 
   // CUDA
   EXPR_CUDA_KERNEL_CALL, // CUDAKernelCallExpr

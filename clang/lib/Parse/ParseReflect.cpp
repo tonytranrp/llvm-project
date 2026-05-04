@@ -96,3 +96,36 @@ ExprResult Parser::ParseCXXReflectExpression() {
   Diag(OperandLoc, diag::err_cannot_reflect_operand);
   return ExprError();
 }
+
+ExprResult Parser::ParseReflectionMetafunction() {
+  // Parse: is_type(expr), type_of(expr), identifier_of(expr)
+  assert((Tok.is(tok::kw_is_type) || Tok.is(tok::kw_type_of) ||
+          Tok.is(tok::kw_identifier_of)) &&
+         "Expected reflection metafunction keyword");
+  assert(getLangOpts().Reflection && "Reflection not enabled");
+
+  // Save which metafunction keyword before consuming
+  tok::TokenKind KwKind = Tok.getKind();
+  SourceLocation KwLoc = ConsumeToken();
+
+  if (!Tok.is(tok::l_paren)) {
+    Diag(KwLoc, diag::err_expected_after) << KwKind << tok::l_paren;
+    return ExprError();
+  }
+
+  SourceLocation LParenLoc = ConsumeToken();
+
+  // Parse the argument expression
+  ExprResult Arg = ParseAssignmentExpression();
+  if (Arg.isInvalid())
+    return ExprError();
+
+  if (!Tok.is(tok::r_paren)) {
+    Diag(Tok, diag::err_expected) << tok::r_paren;
+    return ExprError();
+  }
+  SourceLocation RParenLoc = ConsumeToken();
+
+  return Actions.ActOnReflectionMetafunction(KwLoc, KwKind, LParenLoc,
+                                              Arg.get(), RParenLoc);
+}

@@ -5007,6 +5007,11 @@ recurse:
     assert(false && "unimplemented");
     break;
   }
+  case Expr::CXXReflectionMetafunctionExprClass: {
+    // TODO(Reflection): implement mangling for metafunctions
+    assert(false && "unimplemented");
+    break;
+  }
 
   // FIXME: invent manglings for all these.
   case Expr::BlockExprClass:

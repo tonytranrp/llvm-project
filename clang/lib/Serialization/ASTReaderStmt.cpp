@@ -540,8 +540,23 @@ void ASTStmtReader::VisitCapturedStmt(CapturedStmt *S) {
 }
 
 void ASTStmtReader::VisitCXXReflectExpr(CXXReflectExpr *E) {
-  // TODO(Reflection): Implement this.
-  assert(false && "not implemented yet");
+  VisitExpr(E);
+  E->CaretCaretLoc = readSourceLocation();
+  E->OperandLoc = readSourceLocation();
+  unsigned Kind = Record.readInt();
+  E->Kind = static_cast<CXXReflectExpr::ReflectionKind>(Kind);
+  // TODO(Reflection): serialize the operand (TypeSourceInfo* or ValueDecl*)
+}
+
+void ASTStmtReader::VisitCXXReflectionMetafunctionExpr(
+    CXXReflectionMetafunctionExpr *E) {
+  VisitExpr(E);
+  unsigned Kind = Record.readInt();
+  E->Kind = static_cast<CXXReflectionMetafunctionExpr::MetafunctionKind>(Kind);
+  E->KwLoc = readSourceLocation();
+  E->LParenLoc = readSourceLocation();
+  E->RParenLoc = readSourceLocation();
+  E->SubExprs[0] = Record.readSubStmt();
 }
 
 void ASTStmtReader::VisitSYCLKernelCallStmt(SYCLKernelCallStmt *S) {
@@ -4595,6 +4610,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     case EXPR_REFLECT: {
       S = CXXReflectExpr::CreateEmpty(Context);
+      break;
+    }
+    case EXPR_REFLECTION_METAFUNCTION: {
+      S = CXXReflectionMetafunctionExpr::CreateEmpty(Context);
       break;
     }
     }

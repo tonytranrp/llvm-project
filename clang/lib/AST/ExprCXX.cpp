@@ -1966,6 +1966,36 @@ CXXReflectExpr *CXXReflectExpr::CreateEmpty(ASTContext &C) {
   return new (C) CXXReflectExpr(EmptyShell());
 }
 
+CXXReflectionMetafunctionExpr::CXXReflectionMetafunctionExpr(
+    MetafunctionKind Kind, SourceLocation KwLoc, SourceLocation LParenLoc,
+    Expr *Arg, SourceLocation RParenLoc, QualType ResultTy, ExprValueKind VK)
+    : Expr(CXXReflectionMetafunctionExprClass, ResultTy, VK, OK_Ordinary),
+      KwLoc(KwLoc), LParenLoc(LParenLoc), RParenLoc(RParenLoc),
+      SubExprs{Arg}, Kind(Kind) {
+  // Reflection metafunctions are value-dependent if their argument is.
+  // For the MVP, these are always non-dependent since the argument is
+  // always a CXXReflectExpr which produces MetaInfoTy.
+  setDependence(ExprDependence::None);
+}
+
+CXXReflectionMetafunctionExpr::CXXReflectionMetafunctionExpr(EmptyShell Empty)
+    : Expr(CXXReflectionMetafunctionExprClass, Empty) {}
+
+CXXReflectionMetafunctionExpr *
+CXXReflectionMetafunctionExpr::Create(ASTContext &C, MetafunctionKind Kind,
+                                     SourceLocation KwLoc,
+                                     SourceLocation LParenLoc, Expr *Arg,
+                                     SourceLocation RParenLoc,
+                                     QualType ResultTy) {
+  return new (C) CXXReflectionMetafunctionExpr(Kind, KwLoc, LParenLoc, Arg,
+                                                RParenLoc, ResultTy);
+}
+
+CXXReflectionMetafunctionExpr *
+CXXReflectionMetafunctionExpr::CreateEmpty(ASTContext &C) {
+  return new (C) CXXReflectionMetafunctionExpr(EmptyShell());
+}
+
 CUDAKernelCallExpr::CUDAKernelCallExpr(Expr *Fn, CallExpr *Config,
                                        ArrayRef<Expr *> Args, QualType Ty,
                                        ExprValueKind VK, SourceLocation RP,

@@ -3069,6 +3069,24 @@ public:
                                            RHS, /*RequiresADL*/false);
   }
 
+  /// Build a new reflection metafunction expression.
+  ///
+  /// By default, performs semantic analysis to build the new expression.
+  /// Subclasses may override this routine to provide different behavior.
+  ExprResult RebuildCXXReflectionMetafunctionExpr(
+      CXXReflectionMetafunctionExpr::MetafunctionKind Kind,
+      SourceLocation KwLoc, SourceLocation LParenLoc, Expr *Arg,
+      SourceLocation RParenLoc) {
+    return getSema().ActOnReflectionMetafunction(KwLoc,
+        static_cast<tok::TokenKind>(
+            Kind == CXXReflectionMetafunctionExpr::MK_IsType
+                ? tok::kw_is_type
+                : Kind == CXXReflectionMetafunctionExpr::MK_TypeOf
+                      ? tok::kw_type_of
+                      : tok::kw_identifier_of),
+        LParenLoc, Arg, RParenLoc);
+  }
+
   /// Build a new conditional operator expression.
   ///
   /// By default, performs semantic analysis to build the new expression.
@@ -13166,6 +13184,21 @@ ExprResult TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
   // TODO(reflection): Implement its transform
   assert(false && "not implemented yet");
   return ExprError();
+}
+
+template <typename Derived>
+ExprResult TreeTransform<Derived>::TransformCXXReflectionMetafunctionExpr(
+    CXXReflectionMetafunctionExpr *E) {
+  ExprResult Arg = getDerived().TransformExpr(E->getArgument());
+  if (Arg.isInvalid())
+    return ExprError();
+
+  if (!getDerived().AlwaysRebuild() && Arg.get() == E->getArgument())
+    return E;
+
+  return getDerived().RebuildCXXReflectionMetafunctionExpr(
+      E->getMetafunctionKind(), E->getKeywordLoc(), E->getLParenLoc(),
+      Arg.get(), E->getRParenLoc());
 }
 
 template<typename Derived>

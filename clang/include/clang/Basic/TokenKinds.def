@@ -46,6 +46,9 @@
 #ifndef CONTRACTS_KEYWORD
 #define CONTRACTS_KEYWORD(X) KEYWORD(X,KEYCONTRACTS)
 #endif
+#ifndef REFLECTION_KEYWORD
+#define REFLECTION_KEYWORD(X) KEYWORD(X,KEYREFLECTION)
+#endif
 #ifndef TYPE_TRAIT
 #define TYPE_TRAIT(N,I,K) KEYWORD(I,K)
 #endif
@@ -448,6 +451,11 @@ CONTRACTS_KEYWORD(contract_assert)
 // Note: 'pre' and 'post' are handled as contextual keywords in function
 // declarator parsing, not as global keywords, to avoid conflicts with
 // existing identifiers named 'pre' or 'post'.
+
+// C++26 Reflection metafunction keywords (P2996)
+REFLECTION_KEYWORD(is_type)
+REFLECTION_KEYWORD(type_of)
+REFLECTION_KEYWORD(identifier_of)
 
 // C++20 keywords
 MODULES_KEYWORD(module)

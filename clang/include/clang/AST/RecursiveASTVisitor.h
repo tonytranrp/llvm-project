@@ -2920,6 +2920,7 @@ DEF_TRAVERSE_STMT(CXXUnresolvedConstructExpr, {
 })
 
 DEF_TRAVERSE_STMT(CXXReflectExpr, {/*TODO*/})
+DEF_TRAVERSE_STMT(CXXReflectionMetafunctionExpr, {/*TODO*/})
 
 // These expressions all might take explicit template arguments.
 // We traverse those if so.  FIXME: implement these.

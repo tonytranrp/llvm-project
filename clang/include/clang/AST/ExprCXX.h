@@ -5506,6 +5506,9 @@ public:
 ///  - a type-id, or
 ///  - an id-expression.
 class CXXReflectExpr : public Expr {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+
 public:
   /// The kind of reflection operand.
   enum ReflectionKind : unsigned {
@@ -5589,6 +5592,72 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == CXXReflectExprClass;
+  }
+};
+
+/// Represents a C++26 reflection metafunction invocation such as
+/// is_type(expr), type_of(expr), or identifier_of(expr).
+/// These are consteval functions that operate on std::meta::info values.
+class CXXReflectionMetafunctionExpr : public Expr {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+
+public:
+  /// The kind of reflection metafunction.
+  enum MetafunctionKind : unsigned {
+    /// is_type(expr) — returns bool indicating if the reflection is of a type
+    MK_IsType,
+    /// type_of(expr) — returns the reflected type (or errors if not a type)
+    MK_TypeOf,
+    /// identifier_of(expr) — returns the name of the reflected entity
+    MK_IdentifierOf,
+  };
+
+private:
+  SourceLocation KwLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+  Stmt *SubExprs[1]; // The argument expression
+  MetafunctionKind Kind;
+
+  CXXReflectionMetafunctionExpr(MetafunctionKind Kind, SourceLocation KwLoc,
+                                SourceLocation LParenLoc, Expr *Arg,
+                                SourceLocation RParenLoc, QualType ResultTy,
+                                ExprValueKind VK = VK_PRValue);
+  CXXReflectionMetafunctionExpr(EmptyShell Empty);
+
+public:
+  static CXXReflectionMetafunctionExpr *
+  Create(ASTContext &C, MetafunctionKind Kind, SourceLocation KwLoc,
+         SourceLocation LParenLoc, Expr *Arg, SourceLocation RParenLoc,
+         QualType ResultTy);
+  static CXXReflectionMetafunctionExpr *CreateEmpty(ASTContext &C);
+
+  /// Returns the metafunction kind.
+  MetafunctionKind getMetafunctionKind() const { return Kind; }
+
+  /// Returns the argument expression.
+  Expr *getArgument() const {
+    return cast<Expr>(SubExprs[0]);
+  }
+
+  SourceLocation getKeywordLoc() const { return KwLoc; }
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return KwLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() {
+    return child_range(SubExprs, SubExprs + 1);
+  }
+
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + 1);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXReflectionMetafunctionExprClass;
   }
 };
 

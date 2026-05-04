@@ -3941,7 +3941,44 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (BuiltinCountedByRef(TheCall))
       return ExprError();
     break;
+  // C++26 Reflection metafunctions (P2996)
+  case Builtin::BI__builtin_meta_is_type: {
+    if (!getLangOpts().Reflection) {
+      Diag(TheCall->getBeginLoc(), diag::err_contracts_required)
+          << "reflection required for __builtin_meta_is_type";
+      return ExprError();
+    }
+    // If the argument is a CXXReflectExpr, fold to true/false at compile time.
+    if (TheCall->getNumArgs() == 1) {
+      Expr *Arg = TheCall->getArg(0)->IgnoreParenImpCasts();
+      if (auto *RE = dyn_cast<CXXReflectExpr>(Arg)) {
+        bool IsType = RE->getReflectionKind() == CXXReflectExpr::RK_Type;
+        return ActOnCXXBoolLiteral(TheCall->getExprLoc(),
+                                    IsType ? tok::kw_true : tok::kw_false);
+      }
+    }
+    break;
   }
+  case Builtin::BI__builtin_meta_identifier_of: {
+    if (!getLangOpts().Reflection) {
+      Diag(TheCall->getBeginLoc(), diag::err_contracts_required)
+          << "reflection required for __builtin_meta_identifier_of";
+      return ExprError();
+    }
+    // For MVP, just return the argument as-is. Full implementation would
+    // return a const char* name of the reflected entity.
+    break;
+  }
+  case Builtin::BI__builtin_meta_type_of: {
+    if (!getLangOpts().Reflection) {
+      Diag(TheCall->getBeginLoc(), diag::err_contracts_required)
+          << "reflection required for __builtin_meta_type_of";
+      return ExprError();
+    }
+    // Custom type checking — the return type depends on the reflection.
+    break;
+  }
+  } // end switch
 
   if (getLangOpts().HLSL && HLSL().CheckBuiltinFunctionCall(BuiltinID, TheCall))
     return ExprError();

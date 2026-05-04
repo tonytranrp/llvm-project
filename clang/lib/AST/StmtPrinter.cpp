@@ -2596,8 +2596,38 @@ void StmtPrinter::VisitCXXUnresolvedConstructExpr(
 }
 
 void StmtPrinter::VisitCXXReflectExpr(CXXReflectExpr *S) {
-  // TODO(Reflection): Implement this.
-  assert(false && "not implemented yet");
+  OS << "^^";
+  switch (S->getReflectionKind()) {
+  case CXXReflectExpr::RK_Type:
+    OS << S->getTypeOperand()->getType().getAsString(Policy);
+    break;
+  case CXXReflectExpr::RK_Declaration:
+    if (auto *D = S->getDeclarationOperand())
+      OS << D->getNameAsString();
+    else
+      OS << "<decl>";
+    break;
+  case CXXReflectExpr::RK_GlobalNamespace:
+    OS << "::";
+    break;
+  }
+}
+
+void StmtPrinter::VisitCXXReflectionMetafunctionExpr(
+    CXXReflectionMetafunctionExpr *S) {
+  switch (S->getMetafunctionKind()) {
+  case CXXReflectionMetafunctionExpr::MK_IsType:
+    OS << "is_type(";
+    break;
+  case CXXReflectionMetafunctionExpr::MK_TypeOf:
+    OS << "type_of(";
+    break;
+  case CXXReflectionMetafunctionExpr::MK_IdentifierOf:
+    OS << "identifier_of(";
+    break;
+  }
+  PrintExpr(S->getArgument());
+  OS << ')';
 }
 
 void StmtPrinter::VisitCXXDependentScopeMemberExpr(

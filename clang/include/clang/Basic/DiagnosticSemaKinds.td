@@ -14243,4 +14243,14 @@ def err_contracts_required : Error<
     "contracts require -fcontracts">;
 def err_contract_assert_failed : Error<
     "contract assertion failed">;
+
+// Reflection diagnostics
+def err_reflection_required : Error<
+    "reflection requires -freflection">;
+def err_reflection_metafunction_arg : Error<
+    "argument to %0 must be a reflection value (std::meta::info)">;
+def err_reflection_metafunction_type_of_not_decl : Error<
+    "type_of requires a reflection of a declaration">;
+def err_reflection_metafunction_identifier_of_no_name : Error<
+    "reflected entity has no identifier">;
 } // end of sema component.

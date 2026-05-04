@@ -833,6 +833,37 @@ public:
     return Builder.getInt64(0);
   }
 
+  Value *VisitCXXReflectionMetafunctionExpr(
+      const CXXReflectionMetafunctionExpr *E) {
+    // Emit the argument (the reflection value)
+    Value *ArgVal = Visit(E->getArgument());
+
+    switch (E->getMetafunctionKind()) {
+    case CXXReflectionMetafunctionExpr::MK_IsType: {
+      // MVP: if the argument is a CXXReflectExpr, check its kind at
+      // compile time. Otherwise, emit a runtime check placeholder (true).
+      // For the MVP, we check if the sub-expression is a CXXReflectExpr
+      // and return whether it reflects a type.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        return Builder.getInt1(Reflect->getReflectionKind() ==
+                               CXXReflectExpr::RK_Type);
+      }
+      // Runtime fallback: assume true (placeholder)
+      return Builder.getInt1(true);
+    }
+    case CXXReflectionMetafunctionExpr::MK_TypeOf: {
+      // MVP: just pass through the reflection value
+      return ArgVal;
+    }
+    case CXXReflectionMetafunctionExpr::MK_IdentifierOf: {
+      // MVP: just pass through the reflection value
+      // Full impl would produce a string representation
+      return ArgVal;
+    }
+    }
+    llvm_unreachable("unexpected metafunction kind");
+  }
+
   // Binary Operators.
   Value *EmitMul(const BinOpInfo &Ops) {
     if (Ops.Ty->isSignedIntegerOrEnumerationType() ||

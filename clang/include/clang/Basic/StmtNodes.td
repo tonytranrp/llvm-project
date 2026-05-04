@@ -181,8 +181,9 @@ def CoyieldExpr : StmtNode<CoroutineSuspendExpr>;
 def ConceptSpecializationExpr : StmtNode<Expr>;
 def RequiresExpr : StmtNode<Expr>;
 
-// c++ 26 reflection
+// C++26 reflection
 def CXXReflectExpr : StmtNode<Expr>;
+def CXXReflectionMetafunctionExpr : StmtNode<Expr>;
 
 // Pattern matching and contracts extensions are implemented as builtins
 // and lowered AST nodes for the initial MVP. Dedicated StmtNode entries

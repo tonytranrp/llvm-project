@@ -2209,8 +2209,16 @@ StmtProfiler::VisitLambdaExpr(const LambdaExpr *S) {
 }
 
 void StmtProfiler::VisitCXXReflectExpr(const CXXReflectExpr *E) {
-  // TODO(Reflection): Implement this.
-  assert(false && "not implemented yet");
+  ID.AddInteger(E->getReflectionKind());
+  // Note: we don't profile the operand pointer values since they are
+  // AST-internal pointers. For a full implementation, we'd need to
+  // serialize a canonical representation of the reflected entity.
+}
+
+void StmtProfiler::VisitCXXReflectionMetafunctionExpr(
+    const CXXReflectionMetafunctionExpr *E) {
+  ID.AddInteger(E->getMetafunctionKind());
+  VisitExpr(E);
 }
 
 void

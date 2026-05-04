@@ -5883,3 +5883,20 @@ def CountedByRef : Builtin {
   let Attributes = [NoThrow, CustomTypeChecking];
   let Prototype = "int(...)";
 }
+
+// C++26 Reflection metafunctions (P2996)
+def MetaIsType : LangBuiltin<"ALL_LANGUAGES"> {
+  let Spellings = ["__builtin_meta_is_type"];
+  let Attributes = [NoThrow, CustomTypeChecking];
+  let Prototype = "int(...)";
+}
+def MetaTypeOf : LangBuiltin<"ALL_LANGUAGES"> {
+  let Spellings = ["__builtin_meta_type_of"];
+  let Attributes = [NoThrow, CustomTypeChecking];
+  let Prototype = "int(...)";
+}
+def MetaIdentifierOf : LangBuiltin<"ALL_LANGUAGES"> {
+  let Spellings = ["__builtin_meta_identifier_of"];
+  let Attributes = [NoThrow, CustomTypeChecking];
+  let Prototype = "int(...)";
+}

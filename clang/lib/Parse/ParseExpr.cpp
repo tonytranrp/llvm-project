@@ -1200,6 +1200,15 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     return ParseMatchExpression();
   }
 
+  // C++26 Reflection metafunctions (P2996)
+  case tok::kw_is_type:
+  case tok::kw_type_of:
+  case tok::kw_identifier_of: {
+    if (!getLangOpts().Reflection)
+      break;
+    return ParseReflectionMetafunction();
+  }
+
   case tok::kw___extension__:{//unary-expression:'__extension__' cast-expr [GNU]
     // __extension__ silences extension warnings in the subexpression.
     if (NotPrimaryExpression)

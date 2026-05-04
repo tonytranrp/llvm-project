@@ -5190,6 +5190,11 @@ private:
   /// ParseMatchExpression - parses match(expr) { patterns... }
   ExprResult ParseMatchExpression();
 
+  // Reflection metafunction parsing
+  /// ParseReflectionMetafunction - parses is_type(expr), type_of(expr),
+  /// identifier_of(expr)
+  ExprResult ParseReflectionMetafunction();
+
   //
   //
   // -------------------------------------------------------------------------

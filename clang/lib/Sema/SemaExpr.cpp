@@ -18215,6 +18215,71 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation CaretCaretLoc,
                                 Kind);
 }
 
+ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
+                                             tok::TokenKind KwKind,
+                                             SourceLocation LParenLoc,
+                                             Expr *Arg,
+                                             SourceLocation RParenLoc) {
+  if (!getLangOpts().Reflection) {
+    Diag(KwLoc, diag::err_reflection_required);
+    return ExprError();
+  }
+
+  // Determine the metafunction kind from the token kind
+  CXXReflectionMetafunctionExpr::MetafunctionKind MK;
+  switch (KwKind) {
+  case tok::kw_is_type:
+    MK = CXXReflectionMetafunctionExpr::MK_IsType;
+    break;
+  case tok::kw_type_of:
+    MK = CXXReflectionMetafunctionExpr::MK_TypeOf;
+    break;
+  case tok::kw_identifier_of:
+    MK = CXXReflectionMetafunctionExpr::MK_IdentifierOf;
+    break;
+  default:
+    llvm_unreachable("unexpected metafunction keyword");
+  }
+
+  // The argument must be a reflection value (std::meta::info / MetaInfoTy)
+  QualType ArgTy = Arg->getType();
+  QualType MetaInfoTy = Context.MetaInfoTy.isNull() ? Context.IntTy
+                                                     : (QualType)Context.MetaInfoTy;
+  if (!Context.hasSameUnqualifiedType(ArgTy, MetaInfoTy)) {
+    const char *KwName = "";
+    switch (KwKind) {
+    case tok::kw_is_type: KwName = "is_type"; break;
+    case tok::kw_type_of: KwName = "type_of"; break;
+    case tok::kw_identifier_of: KwName = "identifier_of"; break;
+    default: break;
+    }
+    Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
+        << KwName;
+    return ExprError();
+  }
+
+  // Determine the result type:
+  // - is_type() returns bool
+  // - type_of() returns MetaInfoTy (same type, representing the type)
+  // - identifier_of() returns const char* (MVP: placeholder as MetaInfoTy)
+  QualType ResultTy;
+  switch (MK) {
+  case CXXReflectionMetafunctionExpr::MK_IsType:
+    ResultTy = Context.BoolTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_TypeOf:
+    ResultTy = MetaInfoTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_IdentifierOf:
+    // MVP: return MetaInfoTy as placeholder; full impl returns string_view
+    ResultTy = MetaInfoTy;
+    break;
+  }
+
+  return CXXReflectionMetafunctionExpr::Create(Context, MK, KwLoc, LParenLoc,
+                                               Arg, RParenLoc, ResultTy);
+}
+
 namespace {
 
 const DeclRefExpr *CheckPossibleDeref(Sema &S, const Expr *PossibleDeref) {

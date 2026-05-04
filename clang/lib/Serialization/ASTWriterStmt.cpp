@@ -475,8 +475,23 @@ void ASTStmtWriter::VisitCoyieldExpr(CoyieldExpr *E) {
 }
 
 void ASTStmtWriter::VisitCXXReflectExpr(CXXReflectExpr *E) {
-  // TODO(Reflection): Implement this.
-  assert(false && "not implemented yet");
+  VisitExpr(E);
+  Record.AddSourceLocation(E->CaretCaretLoc);
+  Record.AddSourceLocation(E->OperandLoc);
+  Record.push_back(E->Kind);
+  // TODO(Reflection): serialize the operand (TypeSourceInfo* or ValueDecl*)
+  Code = serialization::EXPR_REFLECT;
+}
+
+void ASTStmtWriter::VisitCXXReflectionMetafunctionExpr(
+    CXXReflectionMetafunctionExpr *E) {
+  VisitExpr(E);
+  Record.push_back(E->Kind);
+  Record.AddSourceLocation(E->KwLoc);
+  Record.AddSourceLocation(E->LParenLoc);
+  Record.AddSourceLocation(E->RParenLoc);
+  Record.AddStmt(E->SubExprs[0]);
+  Code = serialization::EXPR_REFLECTION_METAFUNCTION;
 }
 
 void ASTStmtWriter::VisitDependentCoawaitExpr(DependentCoawaitExpr *E) {

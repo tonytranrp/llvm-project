@@ -14948,6 +14948,13 @@ public:
                                  CXXReflectExpr::operand_type Operand,
                                  CXXReflectExpr::ReflectionKind Kind);
 
+  // Reflection metafunction Sema actions
+  ExprResult ActOnReflectionMetafunction(SourceLocation KwLoc,
+                                         tok::TokenKind KwKind,
+                                         SourceLocation LParenLoc,
+                                         Expr *Arg,
+                                         SourceLocation RParenLoc);
+
   // Pattern matching Sema actions
   ExprResult ActOnMatchExpr(SourceLocation MatchLoc, SourceLocation RParenLoc,
                             SourceLocation LBraceLoc, SourceLocation RBraceLoc,
