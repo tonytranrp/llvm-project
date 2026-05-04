@@ -1211,6 +1211,11 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
   case tok::kw_is_namespace:
   case tok::kw_is_enum:
   case tok::kw_parent_of:
+  case tok::kw_size_of:
+  case tok::kw_get_type:
+  case tok::kw_is_public:
+  case tok::kw_is_private:
+  case tok::kw_is_protected:
   case tok::kw_members_of: {
     if (!getLangOpts().Reflection)
       break;

@@ -5645,6 +5645,16 @@ public:
     MK_IsEnum,
     /// parent_of(expr) — returns a reflection of the parent entity
     MK_ParentOf,
+    /// size_of(expr) — returns the size in bytes of the reflected type
+    MK_SizeOf,
+    /// get_type(expr) — returns the type of a reflected declaration
+    MK_GetType,
+    /// is_public(expr) — returns bool indicating if the reflected entity is public
+    MK_IsPublic,
+    /// is_private(expr) — returns bool indicating if the reflected entity is private
+    MK_IsPrivate,
+    /// is_protected(expr) — returns bool indicating if the reflected entity is protected
+    MK_IsProtected,
   };
 
 private:

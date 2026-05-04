@@ -18371,6 +18371,21 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_parent_of:
     MK = CXXReflectionMetafunctionExpr::MK_ParentOf;
     break;
+  case tok::kw_size_of:
+    MK = CXXReflectionMetafunctionExpr::MK_SizeOf;
+    break;
+  case tok::kw_get_type:
+    MK = CXXReflectionMetafunctionExpr::MK_GetType;
+    break;
+  case tok::kw_is_public:
+    MK = CXXReflectionMetafunctionExpr::MK_IsPublic;
+    break;
+  case tok::kw_is_private:
+    MK = CXXReflectionMetafunctionExpr::MK_IsPrivate;
+    break;
+  case tok::kw_is_protected:
+    MK = CXXReflectionMetafunctionExpr::MK_IsProtected;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18393,6 +18408,11 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
     case tok::kw_is_namespace: KwName = "is_namespace"; break;
     case tok::kw_is_enum: KwName = "is_enum"; break;
     case tok::kw_parent_of: KwName = "parent_of"; break;
+    case tok::kw_size_of: KwName = "size_of"; break;
+    case tok::kw_get_type: KwName = "get_type"; break;
+    case tok::kw_is_public: KwName = "is_public"; break;
+    case tok::kw_is_private: KwName = "is_private"; break;
+    case tok::kw_is_protected: KwName = "is_protected"; break;
     default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18447,6 +18467,20 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_ParentOf:
     // parent_of returns MetaInfoTy (a reflection of the parent entity)
     ResultTy = MetaInfoTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_SizeOf:
+    // size_of returns the size in bytes of the reflected type (as i64/size_t)
+    ResultTy = Context.LongLongTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_GetType:
+    // get_type returns MetaInfoTy (a reflection of the type of a declaration)
+    ResultTy = MetaInfoTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_IsPublic:
+  case CXXReflectionMetafunctionExpr::MK_IsPrivate:
+  case CXXReflectionMetafunctionExpr::MK_IsProtected:
+    // Access specifier queries return bool
+    ResultTy = Context.BoolTy;
     break;
   }
 

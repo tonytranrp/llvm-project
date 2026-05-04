@@ -1077,6 +1077,99 @@ public:
       // Runtime fallback: return 0 (can't determine parent at runtime in MVP)
       return Builder.getInt64(0);
     }
+    case CXXReflectionMetafunctionExpr::MK_SizeOf: {
+      // size_of: return the size in bytes of the reflected type.
+      // Compile-time: if argument is CXXReflectExpr with RK_Type, get
+      // the ASTContext type size.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *TSI = Reflect->getTypeOperand()) {
+            QualType T = TSI->getType();
+            uint64_t Size = CGF.getContext().getTypeSizeInChars(T).getQuantity();
+            return Builder.getInt64(Size);
+          }
+        }
+        return Builder.getInt64(0);
+      }
+      // Runtime fallback: return 0 (can't determine size at runtime in MVP)
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_GetType: {
+      // get_type: return the type of a reflected declaration as a reflection.
+      // Compile-time: if argument is CXXReflectExpr with RK_Declaration, get
+      // the type of the ValueDecl and return a type reflection.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *VD = dyn_cast<ValueDecl>(D)) {
+              QualType T = VD->getType();
+              // Encode as a type reflection: tag=0, hash of type name
+              auto Name = T.getCanonicalType().getAsString();
+              uint64_t Hash = 0;
+              for (char C : Name)
+                Hash = Hash * 131 + static_cast<unsigned char>(C);
+              uint64_t Encoded = (0ULL << 60) | (Hash & 0x0FFFFFFFFFFFFFFFULL);
+              return Builder.getInt64(Encoded);
+            }
+          }
+        }
+        // For type reflections, get_type returns the same reflection
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          return ArgVal;
+        }
+        return Builder.getInt64(0);
+      }
+      // Runtime fallback: return 0
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsPublic: {
+      // is_public: check if the reflected entity has public access.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *ND = dyn_cast<NamedDecl>(D)) {
+              return Builder.getInt1(ND->getAccess() == AS_public);
+            }
+          }
+        }
+        // Types and namespaces are implicitly public at top level
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type ||
+            Reflect->getReflectionKind() == CXXReflectExpr::RK_Namespace ||
+            Reflect->getReflectionKind() == CXXReflectExpr::RK_GlobalNamespace) {
+          return Builder.getInt1(true);
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(true);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsPrivate: {
+      // is_private: check if the reflected entity has private access.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *ND = dyn_cast<NamedDecl>(D)) {
+              return Builder.getInt1(ND->getAccess() == AS_private);
+            }
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsProtected: {
+      // is_protected: check if the reflected entity has protected access.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *ND = dyn_cast<NamedDecl>(D)) {
+              return Builder.getInt1(ND->getAccess() == AS_protected);
+            }
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
   }
