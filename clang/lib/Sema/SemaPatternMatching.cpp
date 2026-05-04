@@ -15,12 +15,15 @@
 #include "clang/Sema/Sema.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/Specifiers.h"
+#include "clang/Basic/TypeTraits.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/DeclSpec.h"
+#include "llvm/ADT/APInt.h"
 
 using namespace clang;
 
@@ -168,11 +171,39 @@ ExprResult Sema::ActOnDestructuringPattern(
 
 ExprResult Sema::ActOnTypePattern(SourceLocation QuestionLoc,
                                    TypeSourceInfo *TSI,
-                                   SourceLocation EndLoc) {
+                                   SourceLocation EndLoc,
+                                   Expr *Scrutinee) {
   // Type pattern: ?type — match if scrutinee is of that type.
-  // For the MVP, we lower this to `true` (always matches).
-  // TODO(Tier 2): Store the type info and generate __builtin_types_compatible_p
-  return ActOnCXXBoolLiteral(QuestionLoc, tok::kw_true);
+  // We generate __is_same(decltype(scrutinee), type) at compile time.
+  // This uses the TypeTraitExpr mechanism which folds to a boolean constant
+  // when both types are non-dependent.
+
+  if (!TSI || !Scrutinee) {
+    return ActOnCXXBoolLiteral(QuestionLoc, tok::kw_true);
+  }
+
+  QualType PatternType = TSI->getType();
+  QualType ScrutineeType = Scrutinee->getType();
+
+  if (ScrutineeType.isNull() || PatternType.isNull() ||
+      ScrutineeType->isDependentType() || PatternType->isDependentType()) {
+    // Dependent types — can't evaluate yet. Lower to true as fallback.
+    return ActOnCXXBoolLiteral(QuestionLoc, tok::kw_true);
+  }
+
+  // Build a TypeTraitExpr for __is_same(decltype(scrutinee), pattern_type)
+  // which evaluates at compile time.
+  TypeSourceInfo *ScrutineeTSI =
+      Context.getTrivialTypeSourceInfo(ScrutineeType, QuestionLoc);
+
+  SmallVector<TypeSourceInfo *, 2> TraitArgs;
+  TraitArgs.push_back(ScrutineeTSI);
+  TraitArgs.push_back(TSI);
+
+  bool IsSame = Context.hasSameType(ScrutineeType, PatternType);
+  return TypeTraitExpr::Create(Context, Context.getLogicalOperationType(),
+                               QuestionLoc, BTT_IsSame, TraitArgs, EndLoc,
+                               IsSame);
 }
 
 ExprResult Sema::ActOnMatchExpr(SourceLocation MatchLoc,
@@ -211,6 +242,8 @@ ExprResult Sema::ActOnMatchExpr(SourceLocation MatchLoc,
     ExprResult Condition;
     if (Pattern->getType()->isBooleanType() &&
         (isa<CXXBoolLiteralExpr>(Pattern) ||
+         // TypeTraitExpr from type patterns (?type) — use directly as condition.
+         isa<TypeTraitExpr>(Pattern) ||
          // Binding patterns produce comma-operator chains ending in true.
          // Check if this is a BinaryOperator with BO_Comma whose RHS is true.
          (isa<BinaryOperator>(Pattern) &&
@@ -218,7 +251,8 @@ ExprResult Sema::ActOnMatchExpr(SourceLocation MatchLoc,
           isa<CXXBoolLiteralExpr>(cast<BinaryOperator>(Pattern)->getRHS()) &&
           cast<CXXBoolLiteralExpr>(cast<BinaryOperator>(Pattern)->getRHS())->getValue()))) {
       // Wildcard/type/destructuring/binding pattern (lowered to `true` or
-      // a comma-chain ending in `true`) — use directly as condition.
+      // a comma-chain ending in `true`) or type pattern (TypeTraitExpr) —
+      // use directly as condition.
       Condition = Pattern;
     } else {
       // Build: scrutinee == pattern
@@ -274,25 +308,62 @@ StmtResult Sema::ActOnContractAssertStmt(SourceLocation Loc, Expr *Condition,
     Condition = CondRes.get();
   }
 
-  // Lower contract_assert/pre/post(condition) to: if (!(condition)) __builtin_trap();
+  // Lower contract_assert/pre/post(condition) to:
+  //   if (!(condition)) __builtin_verbose_trap("contract", "message")
+  // or if no message:
+  //   if (!(condition)) __builtin_trap()
+  // The verbose trap provides better diagnostics with the contract category
+  // and optional user message.
 
   // Step 1: Build !(condition)
   ExprResult NegatedCond = ActOnUnaryOp(getCurScope(), Loc, tok::exclaim, Condition);
   if (NegatedCond.isInvalid())
     return StmtError();
 
-  // Step 2: Build __builtin_trap() call
-  CXXScopeSpec SS;
-  SourceLocation TemplateKWLoc;
-  UnqualifiedId TrapName;
-  TrapName.setIdentifier(PP.getIdentifierInfo("__builtin_trap"), Loc);
-  ExprResult TrapFn = ActOnIdExpression(
-      getCurScope(), SS, TemplateKWLoc, TrapName,
-      /*HasTrailingLParen=*/true, /*IsAddressOfOperand=*/false);
-  if (TrapFn.isInvalid())
-    return StmtError();
+  // Step 2: Build the trap call
+  ExprResult TrapCall;
 
-  ExprResult TrapCall = BuildCallExpr(getCurScope(), TrapFn.get(), Loc, {}, Loc);
+  if (Message) {
+    // Use __builtin_verbose_trap("contract", message) for better diagnostics
+    CXXScopeSpec SS;
+    SourceLocation TemplateKWLoc;
+    UnqualifiedId TrapName;
+    TrapName.setIdentifier(PP.getIdentifierInfo("__builtin_verbose_trap"), Loc);
+    ExprResult TrapFn = ActOnIdExpression(
+        getCurScope(), SS, TemplateKWLoc, TrapName,
+        /*HasTrailingLParen=*/true, /*IsAddressOfOperand=*/false);
+    if (TrapFn.isInvalid())
+      return StmtError();
+
+    // Build the category string literal: "contract"
+    QualType CategoryTy = Context.getConstantArrayType(
+        Context.CharTy.withConst(),
+        llvm::APInt(32, 9), // strlen("contract") + 1
+        nullptr, ArraySizeModifier::Normal, 0);
+    StringLiteral *CategorySL = StringLiteral::Create(
+        Context, "contract", StringLiteralKind::Ordinary,
+        false, CategoryTy, Loc);
+
+    SmallVector<Expr *, 2> TrapArgs;
+    TrapArgs.push_back(CategorySL);
+    TrapArgs.push_back(Message);
+
+    TrapCall = BuildCallExpr(getCurScope(), TrapFn.get(), Loc, TrapArgs, Loc);
+  } else {
+    // Use __builtin_trap() when no message provided
+    CXXScopeSpec SS;
+    SourceLocation TemplateKWLoc;
+    UnqualifiedId TrapName;
+    TrapName.setIdentifier(PP.getIdentifierInfo("__builtin_trap"), Loc);
+    ExprResult TrapFn = ActOnIdExpression(
+        getCurScope(), SS, TemplateKWLoc, TrapName,
+        /*HasTrailingLParen=*/true, /*IsAddressOfOperand=*/false);
+    if (TrapFn.isInvalid())
+      return StmtError();
+
+    TrapCall = BuildCallExpr(getCurScope(), TrapFn.get(), Loc, {}, Loc);
+  }
+
   if (TrapCall.isInvalid())
     return StmtError();
 

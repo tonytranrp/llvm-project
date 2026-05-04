@@ -4061,6 +4061,33 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     // Fallback: return 0
     return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), 0));
   }
+  case Builtin::BI__builtin_meta_decl_of: {
+    // MVP: If the argument is a CXXReflectExpr with RK_Type and the type
+    // has a CXXRecordDecl, return a hash of the decl name as a proxy.
+    // Full implementation would return a declaration meta-object.
+    const Expr *Arg = E->getArg(0)->IgnoreParenImpCasts();
+    if (auto *RE = dyn_cast<CXXReflectExpr>(Arg)) {
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *TSI = RE->getTypeOperand()) {
+          QualType QT = TSI->getType();
+          if (auto *RD = QT->getAsCXXRecordDecl()) {
+            // Return a stable identifier derived from the qualified name hash
+            auto NameHash = static_cast<uint64_t>(
+                llvm::hash_combine(RD->getQualifiedNameAsString()));
+            return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(),
+                               NameHash));
+          }
+        }
+      }
+    }
+    return RValue::get(llvm::ConstantInt::get(Builder.getInt64Ty(), 0));
+  }
+  case Builtin::BI__builtin_meta_name_of: {
+    // Sema should have folded this to a StringLiteral for known reflections.
+    // If we reach here, emit an empty string as fallback.
+    auto Addr = CGM.GetAddrOfConstantCString("");
+    return RValue::get(Addr.getPointer());
+  }
   case Builtin::BI__builtin_prefetch: {
     Value *Locality, *RW, *Address = EmitScalarExpr(E->getArg(0));
     // FIXME: Technically these constants should of type 'int', yes?

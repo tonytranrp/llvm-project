@@ -5905,3 +5905,13 @@ def MetaMembersOf : LangBuiltin<"ALL_LANGUAGES"> {
   let Attributes = [NoThrow, CustomTypeChecking];
   let Prototype = "int(...)";
 }
+def MetaDeclOf : LangBuiltin<"ALL_LANGUAGES"> {
+  let Spellings = ["__builtin_meta_decl_of"];
+  let Attributes = [NoThrow, CustomTypeChecking];
+  let Prototype = "int(...)";
+}
+def MetaNameOf : LangBuiltin<"ALL_LANGUAGES"> {
+  let Spellings = ["__builtin_meta_name_of"];
+  let Attributes = [NoThrow, CustomTypeChecking];
+  let Prototype = "int(...)";
+}

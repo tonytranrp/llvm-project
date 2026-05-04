@@ -101,7 +101,8 @@ ExprResult Parser::ParseTypePattern() {
   if (!TSI)
     TSI = Actions.getASTContext().getTrivialTypeSourceInfo(QT, QuestionLoc);
 
-  return Actions.ActOnTypePattern(QuestionLoc, TSI, QuestionLoc);
+  return Actions.ActOnTypePattern(QuestionLoc, TSI, QuestionLoc,
+                                  MatchScrutinee);
 }
 
 /// ParseBindingPattern - Parse a binding destructuring pattern: auto [x, y, ...]

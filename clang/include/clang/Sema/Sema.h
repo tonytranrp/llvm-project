@@ -14990,7 +14990,8 @@ public:
       SourceLocation RSquareLoc, Expr *Scrutinee);
   ExprResult ActOnTypePattern(SourceLocation QuestionLoc,
                                TypeSourceInfo *TSI,
-                               SourceLocation EndLoc);
+                               SourceLocation EndLoc,
+                               Expr *Scrutinee = nullptr);
 
   // Contracts Sema actions
   StmtResult ActOnContractAssertStmt(SourceLocation Loc, Expr *Condition,

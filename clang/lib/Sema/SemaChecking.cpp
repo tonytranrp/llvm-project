@@ -3996,6 +3996,69 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     TheCall->setType(Context.LongLongTy);
     break;
   }
+  case Builtin::BI__builtin_meta_decl_of: {
+    if (!getLangOpts().Reflection) {
+      Diag(TheCall->getBeginLoc(), diag::err_contracts_required)
+          << "reflection required for __builtin_meta_decl_of";
+      return ExprError();
+    }
+    if (TheCall->getNumArgs() != 1) {
+      Diag(TheCall->getBeginLoc(), diag::err_typecheck_call_too_many_args)
+          << 1 << TheCall->getNumArgs();
+      return ExprError();
+    }
+    // If the argument is a CXXReflectExpr reflecting a type with a
+    // declaration, fold to a CXXReflectExpr for that declaration.
+    // For MVP, set return type to MetaInfoTy (i64).
+    TheCall->setType(Context.LongLongTy);
+    break;
+  }
+  case Builtin::BI__builtin_meta_name_of: {
+    if (!getLangOpts().Reflection) {
+      Diag(TheCall->getBeginLoc(), diag::err_contracts_required)
+          << "reflection required for __builtin_meta_name_of";
+      return ExprError();
+    }
+    if (TheCall->getNumArgs() != 1) {
+      Diag(TheCall->getBeginLoc(), diag::err_typecheck_call_too_many_args)
+          << 1 << TheCall->getNumArgs();
+      return ExprError();
+    }
+    // If the argument is a CXXReflectExpr, try to extract the name at
+    // compile time and fold to a string literal.
+    if (Expr *Arg = TheCall->getArg(0)->IgnoreParenImpCasts()) {
+      if (auto *RE = dyn_cast<CXXReflectExpr>(Arg)) {
+        std::string NameStr;
+        if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *TSI = RE->getTypeOperand()) {
+            NameStr = TSI->getType().getAsString();
+          }
+        } else if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = RE->getDeclarationOperand()) {
+            if (auto *ND = dyn_cast<NamedDecl>(D)) {
+              NameStr = ND->getName().str();
+            }
+          }
+        }
+        if (!NameStr.empty()) {
+          // Fold to a StringLiteral at compile time.
+          // StringLiteral::Create copies the string data, so it's safe to use
+          // a StringRef into the local NameStr here.
+          QualType StrTy = Context.getConstantArrayType(
+              Context.CharTy.withConst(),
+              llvm::APInt(32, NameStr.size() + 1),
+              nullptr, ArraySizeModifier::Normal, 0);
+          StringLiteral *SL = StringLiteral::Create(
+              Context, StringRef(NameStr), StringLiteralKind::Ordinary,
+              false, StrTy, TheCall->getExprLoc());
+          return SL;
+        }
+      }
+    }
+    // Fallback: return type is const char*
+    TheCall->setType(Context.getPointerType(Context.CharTy.withConst()));
+    break;
+  }
   } // end switch
 
   if (getLangOpts().HLSL && HLSL().CheckBuiltinFunctionCall(BuiltinID, TheCall))
