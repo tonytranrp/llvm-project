@@ -5737,6 +5737,40 @@ public:
     MK_IsStaticDataMember,
     /// is_nonstatic_data_member(expr) — returns bool indicating if the reflected entity is a non-static data member
     MK_IsNonstaticDataMember,
+    /// is_polymorphic(expr) — returns bool indicating if the reflected class is polymorphic
+    MK_IsPolymorphic,
+    /// is_trivial(expr) — returns bool indicating if the reflected type is trivial
+    MK_IsTrivial,
+    /// is_aggregate(expr) — returns bool indicating if the reflected type is an aggregate
+    MK_IsAggregate,
+    /// is_scoped_enum(expr) — returns bool indicating if the reflected enum is scoped
+    MK_IsScopedEnum,
+    /// underlying_type(expr) — returns the underlying type of a reflected enum
+    MK_UnderlyingType,
+    /// return_type(expr) — returns the return type of a reflected function
+    MK_ReturnType,
+    /// parameter_count(expr) — returns the number of parameters of a reflected function
+    MK_ParameterCount,
+    /// is_conversion_operator(expr) — returns bool indicating if the reflected function is a conversion operator
+    MK_IsConversionOperator,
+    /// is_copy_constructor(expr) — returns bool indicating if the reflected function is a copy constructor
+    MK_IsCopyConstructor,
+    /// is_move_constructor(expr) — returns bool indicating if the reflected function is a move constructor
+    MK_IsMoveConstructor,
+    /// is_copy_assignment(expr) — returns bool indicating if the reflected function is a copy assignment operator
+    MK_IsCopyAssignment,
+    /// is_move_assignment(expr) — returns bool indicating if the reflected function is a move assignment operator
+    MK_IsMoveAssignment,
+    /// is_deleted(expr) — returns bool indicating if the reflected function is deleted
+    MK_IsDeleted,
+    /// is_defaulted(expr) — returns bool indicating if the reflected function is defaulted
+    MK_IsDefaulted,
+    /// is_explicit_object_member_function(expr) — returns bool indicating if the reflected function is an explicit object member function (deducing this)
+    MK_IsExplicitObjectMemberFunction,
+    /// is_friend(expr) — returns bool indicating if the reflected declaration is a friend declaration
+    MK_IsFriend,
+    /// is_local(expr) — returns bool indicating if the reflected entity is local (declared in function scope)
+    MK_IsLocal,
   };
 
 private:

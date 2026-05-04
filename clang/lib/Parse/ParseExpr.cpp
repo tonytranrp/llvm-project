@@ -1256,6 +1256,23 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
   case tok::kw_is_mutable:
   case tok::kw_is_static_data_member:
   case tok::kw_is_nonstatic_data_member:
+  case tok::kw_is_polymorphic:
+  case tok::kw_is_trivial:
+  case tok::kw_is_aggregate:
+  case tok::kw_is_scoped_enum:
+  case tok::kw_underlying_type:
+  case tok::kw_return_type:
+  case tok::kw_parameter_count:
+  case tok::kw_is_conversion_operator:
+  case tok::kw_is_copy_constructor:
+  case tok::kw_is_move_constructor:
+  case tok::kw_is_copy_assignment:
+  case tok::kw_is_move_assignment:
+  case tok::kw_is_deleted:
+  case tok::kw_is_defaulted:
+  case tok::kw_is_explicit_object_member_function:
+  case tok::kw_is_friend:
+  case tok::kw_is_local:
   case tok::kw_members_of: {
     if (!getLangOpts().Reflection)
       break;

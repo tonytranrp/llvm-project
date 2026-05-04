@@ -1664,6 +1664,212 @@ public:
       }
       return Builder.getInt64(0);
     }
+    case CXXReflectionMetafunctionExpr::MK_IsPolymorphic: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *RD = Reflect->getTypeOperand()->getType()->getAsCXXRecordDecl())
+            return Builder.getInt1(RD->isPolymorphic());
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsTrivial: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          QualType T = Reflect->getTypeOperand()->getType();
+          return Builder.getInt1(T.isTrivialType(CGF.getContext()));
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsAggregate: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          QualType T = Reflect->getTypeOperand()->getType();
+          return Builder.getInt1(T->isAggregateType());
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsScopedEnum: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *ET = Reflect->getTypeOperand()->getType()->getAs<EnumType>())
+            return Builder.getInt1(ET->getDecl()->isScoped());
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_UnderlyingType: {
+      // underlying_type: returns the underlying type of an enum as a reflection
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *ET = Reflect->getTypeOperand()->getType()->getAs<EnumType>()) {
+            QualType Underlying = ET->getDecl()->getIntegerType();
+            if (!Underlying.isNull()) {
+              auto Name = Underlying.getCanonicalType().getAsString();
+              uint64_t Hash = 0;
+              for (char C : Name)
+                Hash = Hash * 131 + static_cast<unsigned char>(C);
+              return Builder.getInt64((0ULL << 60) | (Hash & 0x0FFFFFFFFFFFFFFFULL));
+            }
+          }
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_ReturnType: {
+      // return_type: returns the return type of a function as a reflection
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FunctionDecl>(D)) {
+              QualType RetTy = FD->getReturnType();
+              auto Name = RetTy.getCanonicalType().getAsString();
+              uint64_t Hash = 0;
+              for (char C : Name)
+                Hash = Hash * 131 + static_cast<unsigned char>(C);
+              return Builder.getInt64((0ULL << 60) | (Hash & 0x0FFFFFFFFFFFFFFFULL));
+            }
+          }
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_ParameterCount: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FunctionDecl>(D))
+              return Builder.getInt64(FD->getNumParams());
+          }
+        }
+        return Builder.getInt64(0);
+      }
+      return Builder.getInt64(0);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsConversionOperator: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand())
+            return Builder.getInt1(isa<CXXConversionDecl>(D));
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsCopyConstructor: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *CD = dyn_cast<CXXConstructorDecl>(D))
+              return Builder.getInt1(CD->isCopyConstructor());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsMoveConstructor: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *CD = dyn_cast<CXXConstructorDecl>(D))
+              return Builder.getInt1(CD->isMoveConstructor());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsCopyAssignment: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+              return Builder.getInt1(MD->isCopyAssignmentOperator());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsMoveAssignment: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+              return Builder.getInt1(MD->isMoveAssignmentOperator());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsDeleted: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FunctionDecl>(D))
+              return Builder.getInt1(FD->isDeleted());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsDefaulted: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FunctionDecl>(D))
+              return Builder.getInt1(FD->isDefaulted());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsExplicitObjectMemberFunction: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+              return Builder.getInt1(MD->isExplicitObjectMemberFunction());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsFriend: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand())
+            return Builder.getInt1(D->getKind() == Decl::Friend);
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsLocal: {
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            auto *DC = D->getDeclContext();
+            return Builder.getInt1(DC && DC->isFunctionOrMethod());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
   }

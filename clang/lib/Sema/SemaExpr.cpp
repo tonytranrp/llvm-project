@@ -18546,6 +18546,57 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_nonstatic_data_member:
     MK = CXXReflectionMetafunctionExpr::MK_IsNonstaticDataMember;
     break;
+  case tok::kw_is_polymorphic:
+    MK = CXXReflectionMetafunctionExpr::MK_IsPolymorphic;
+    break;
+  case tok::kw_is_trivial:
+    MK = CXXReflectionMetafunctionExpr::MK_IsTrivial;
+    break;
+  case tok::kw_is_aggregate:
+    MK = CXXReflectionMetafunctionExpr::MK_IsAggregate;
+    break;
+  case tok::kw_is_scoped_enum:
+    MK = CXXReflectionMetafunctionExpr::MK_IsScopedEnum;
+    break;
+  case tok::kw_underlying_type:
+    MK = CXXReflectionMetafunctionExpr::MK_UnderlyingType;
+    break;
+  case tok::kw_return_type:
+    MK = CXXReflectionMetafunctionExpr::MK_ReturnType;
+    break;
+  case tok::kw_parameter_count:
+    MK = CXXReflectionMetafunctionExpr::MK_ParameterCount;
+    break;
+  case tok::kw_is_conversion_operator:
+    MK = CXXReflectionMetafunctionExpr::MK_IsConversionOperator;
+    break;
+  case tok::kw_is_copy_constructor:
+    MK = CXXReflectionMetafunctionExpr::MK_IsCopyConstructor;
+    break;
+  case tok::kw_is_move_constructor:
+    MK = CXXReflectionMetafunctionExpr::MK_IsMoveConstructor;
+    break;
+  case tok::kw_is_copy_assignment:
+    MK = CXXReflectionMetafunctionExpr::MK_IsCopyAssignment;
+    break;
+  case tok::kw_is_move_assignment:
+    MK = CXXReflectionMetafunctionExpr::MK_IsMoveAssignment;
+    break;
+  case tok::kw_is_deleted:
+    MK = CXXReflectionMetafunctionExpr::MK_IsDeleted;
+    break;
+  case tok::kw_is_defaulted:
+    MK = CXXReflectionMetafunctionExpr::MK_IsDefaulted;
+    break;
+  case tok::kw_is_explicit_object_member_function:
+    MK = CXXReflectionMetafunctionExpr::MK_IsExplicitObjectMemberFunction;
+    break;
+  case tok::kw_is_friend:
+    MK = CXXReflectionMetafunctionExpr::MK_IsFriend;
+    break;
+  case tok::kw_is_local:
+    MK = CXXReflectionMetafunctionExpr::MK_IsLocal;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18613,6 +18664,23 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_mutable: KwName = "is_mutable"; break;
   case tok::kw_is_static_data_member: KwName = "is_static_data_member"; break;
   case tok::kw_is_nonstatic_data_member: KwName = "is_nonstatic_data_member"; break;
+  case tok::kw_is_polymorphic: KwName = "is_polymorphic"; break;
+  case tok::kw_is_trivial: KwName = "is_trivial"; break;
+  case tok::kw_is_aggregate: KwName = "is_aggregate"; break;
+  case tok::kw_is_scoped_enum: KwName = "is_scoped_enum"; break;
+  case tok::kw_underlying_type: KwName = "underlying_type"; break;
+  case tok::kw_return_type: KwName = "return_type"; break;
+  case tok::kw_parameter_count: KwName = "parameter_count"; break;
+  case tok::kw_is_conversion_operator: KwName = "is_conversion_operator"; break;
+  case tok::kw_is_copy_constructor: KwName = "is_copy_constructor"; break;
+  case tok::kw_is_move_constructor: KwName = "is_move_constructor"; break;
+  case tok::kw_is_copy_assignment: KwName = "is_copy_assignment"; break;
+  case tok::kw_is_move_assignment: KwName = "is_move_assignment"; break;
+  case tok::kw_is_deleted: KwName = "is_deleted"; break;
+  case tok::kw_is_defaulted: KwName = "is_defaulted"; break;
+  case tok::kw_is_explicit_object_member_function: KwName = "is_explicit_object_member_function"; break;
+  case tok::kw_is_friend: KwName = "is_friend"; break;
+  case tok::kw_is_local: KwName = "is_local"; break;
   default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18714,6 +18782,20 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_IsMutable:
   case CXXReflectionMetafunctionExpr::MK_IsStaticDataMember:
   case CXXReflectionMetafunctionExpr::MK_IsNonstaticDataMember:
+  case CXXReflectionMetafunctionExpr::MK_IsPolymorphic:
+  case CXXReflectionMetafunctionExpr::MK_IsTrivial:
+  case CXXReflectionMetafunctionExpr::MK_IsAggregate:
+  case CXXReflectionMetafunctionExpr::MK_IsScopedEnum:
+  case CXXReflectionMetafunctionExpr::MK_IsConversionOperator:
+  case CXXReflectionMetafunctionExpr::MK_IsCopyConstructor:
+  case CXXReflectionMetafunctionExpr::MK_IsMoveConstructor:
+  case CXXReflectionMetafunctionExpr::MK_IsCopyAssignment:
+  case CXXReflectionMetafunctionExpr::MK_IsMoveAssignment:
+  case CXXReflectionMetafunctionExpr::MK_IsDeleted:
+  case CXXReflectionMetafunctionExpr::MK_IsDefaulted:
+  case CXXReflectionMetafunctionExpr::MK_IsExplicitObjectMemberFunction:
+  case CXXReflectionMetafunctionExpr::MK_IsFriend:
+  case CXXReflectionMetafunctionExpr::MK_IsLocal:
     // Access/member/type queries return bool
     ResultTy = Context.BoolTy;
     break;
@@ -18725,7 +18807,13 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_BitSizeOf:
   case CXXReflectionMetafunctionExpr::MK_RankOf:
   case CXXReflectionMetafunctionExpr::MK_ExtentOf:
-    // bit_size_of/rank_of/extent_of return integer values
+  case CXXReflectionMetafunctionExpr::MK_ParameterCount:
+    // bit_size_of/rank_of/extent_of/parameter_count return integer values
+    ResultTy = Context.LongLongTy;
+    break;
+  case CXXReflectionMetafunctionExpr::MK_UnderlyingType:
+  case CXXReflectionMetafunctionExpr::MK_ReturnType:
+    // underlying_type/return_type return std::meta::info (reflection values)
     ResultTy = Context.LongLongTy;
     break;
   }
@@ -19038,6 +19126,108 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
       if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
         if (auto *D = RE->getDeclarationOperand())
           ResultValue = isa<FieldDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsPolymorphic:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *RD = RE->getTypeOperand()->getType()->getAsCXXRecordDecl())
+          ResultValue = RD->isPolymorphic();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsTrivial:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        QualType T = RE->getTypeOperand()->getType();
+        ResultValue = T.isTrivialType(Context);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsAggregate:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        QualType T = RE->getTypeOperand()->getType();
+        ResultValue = T->isAggregateType();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsScopedEnum:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *ET = RE->getTypeOperand()->getType()->getAs<EnumType>())
+          ResultValue = ET->getDecl()->isScoped();
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsConversionOperator:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          ResultValue = isa<CXXConversionDecl>(D);
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsCopyConstructor:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *CD = dyn_cast<CXXConstructorDecl>(D))
+            ResultValue = CD->isCopyConstructor();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsMoveConstructor:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *CD = dyn_cast<CXXConstructorDecl>(D))
+            ResultValue = CD->isMoveConstructor();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsCopyAssignment:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+            ResultValue = MD->isCopyAssignmentOperator();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsMoveAssignment:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+            ResultValue = MD->isMoveAssignmentOperator();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsDeleted:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *FD = dyn_cast<FunctionDecl>(D))
+            ResultValue = FD->isDeleted();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsDefaulted:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *FD = dyn_cast<FunctionDecl>(D))
+            ResultValue = FD->isDefaulted();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsExplicitObjectMemberFunction:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *MD = dyn_cast<CXXMethodDecl>(D))
+            ResultValue = MD->isExplicitObjectMemberFunction();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsFriend:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<FriendDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsLocal:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          // A declaration is local if its declaring context is a function
+          auto *DC = D->getDeclContext();
+          ResultValue = DC && DC->isFunctionOrMethod();
+        }
       }
       break;
     // alignment_of, bit_size_of, rank_of, extent_of:

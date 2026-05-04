@@ -2027,11 +2027,28 @@ bool CXXReflectionMetafunctionExpr::isBooleanMetafunction() const {
   case MK_IsMutable:
   case MK_IsStaticDataMember:
   case MK_IsNonstaticDataMember:
+  case MK_IsPolymorphic:
+  case MK_IsTrivial:
+  case MK_IsAggregate:
+  case MK_IsScopedEnum:
+  case MK_IsConversionOperator:
+  case MK_IsCopyConstructor:
+  case MK_IsMoveConstructor:
+  case MK_IsCopyAssignment:
+  case MK_IsMoveAssignment:
+  case MK_IsDeleted:
+  case MK_IsDefaulted:
+  case MK_IsExplicitObjectMemberFunction:
+  case MK_IsFriend:
+  case MK_IsLocal:
     return true;
   case MK_AlignmentOf:
   case MK_BitSizeOf:
   case MK_RankOf:
   case MK_ExtentOf:
+  case MK_UnderlyingType:
+  case MK_ReturnType:
+  case MK_ParameterCount:
   case MK_TypeOf:
   case MK_IdentifierOf:
   case MK_MembersOf:

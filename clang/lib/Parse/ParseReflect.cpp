@@ -147,7 +147,19 @@ ExprResult Parser::ParseReflectionMetafunction() {
           Tok.is(tok::kw_is_array) || Tok.is(tok::kw_is_constexpr) ||
           Tok.is(tok::kw_is_inline_variable) || Tok.is(tok::kw_is_mutable) ||
           Tok.is(tok::kw_is_static_data_member) ||
-          Tok.is(tok::kw_is_nonstatic_data_member)) &&
+          Tok.is(tok::kw_is_nonstatic_data_member) ||
+          Tok.is(tok::kw_is_polymorphic) || Tok.is(tok::kw_is_trivial) ||
+          Tok.is(tok::kw_is_aggregate) || Tok.is(tok::kw_is_scoped_enum) ||
+          Tok.is(tok::kw_underlying_type) || Tok.is(tok::kw_return_type) ||
+          Tok.is(tok::kw_parameter_count) ||
+          Tok.is(tok::kw_is_conversion_operator) ||
+          Tok.is(tok::kw_is_copy_constructor) ||
+          Tok.is(tok::kw_is_move_constructor) ||
+          Tok.is(tok::kw_is_copy_assignment) ||
+          Tok.is(tok::kw_is_move_assignment) ||
+          Tok.is(tok::kw_is_deleted) || Tok.is(tok::kw_is_defaulted) ||
+          Tok.is(tok::kw_is_explicit_object_member_function) ||
+          Tok.is(tok::kw_is_friend) || Tok.is(tok::kw_is_local)) &&
          "Expected reflection metafunction keyword");
   assert(getLangOpts().Reflection && "Reflection not enabled");
 
