@@ -2000,6 +2000,12 @@ bool CXXReflectionMetafunctionExpr::isBooleanMetafunction() const {
   case MK_IsConst:
   case MK_IsVolatile:
   case MK_HasParent:
+  case MK_IsTemplate:
+  case MK_IsExplicit:
+  case MK_IsNoexcept:
+  case MK_IsConstructor:
+  case MK_IsDestructor:
+  case MK_IsEmpty:
     return true;
   case MK_TypeOf:
   case MK_IdentifierOf:

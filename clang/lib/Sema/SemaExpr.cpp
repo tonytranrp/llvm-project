@@ -18453,6 +18453,24 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_has_parent:
     MK = CXXReflectionMetafunctionExpr::MK_HasParent;
     break;
+  case tok::kw_is_template:
+    MK = CXXReflectionMetafunctionExpr::MK_IsTemplate;
+    break;
+  case tok::kw_is_explicit:
+    MK = CXXReflectionMetafunctionExpr::MK_IsExplicit;
+    break;
+  case tok::kw_is_noexcept:
+    MK = CXXReflectionMetafunctionExpr::MK_IsNoexcept;
+    break;
+  case tok::kw_is_constructor:
+    MK = CXXReflectionMetafunctionExpr::MK_IsConstructor;
+    break;
+  case tok::kw_is_destructor:
+    MK = CXXReflectionMetafunctionExpr::MK_IsDestructor;
+    break;
+  case tok::kw_is_empty:
+    MK = CXXReflectionMetafunctionExpr::MK_IsEmpty;
+    break;
   default:
     llvm_unreachable("unexpected metafunction keyword");
   }
@@ -18489,6 +18507,12 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case tok::kw_is_volatile: KwName = "is_volatile"; break;
   case tok::kw_offset_of: KwName = "offset_of"; break;
   case tok::kw_has_parent: KwName = "has_parent"; break;
+  case tok::kw_is_template: KwName = "is_template"; break;
+  case tok::kw_is_explicit: KwName = "is_explicit"; break;
+  case tok::kw_is_noexcept: KwName = "is_noexcept"; break;
+  case tok::kw_is_constructor: KwName = "is_constructor"; break;
+  case tok::kw_is_destructor: KwName = "is_destructor"; break;
+  case tok::kw_is_empty: KwName = "is_empty"; break;
   default: break;
     }
     Diag(Arg->getBeginLoc(), diag::err_reflection_metafunction_arg)
@@ -18563,6 +18587,12 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
   case CXXReflectionMetafunctionExpr::MK_IsConst:
   case CXXReflectionMetafunctionExpr::MK_IsVolatile:
   case CXXReflectionMetafunctionExpr::MK_HasParent:
+  case CXXReflectionMetafunctionExpr::MK_IsTemplate:
+  case CXXReflectionMetafunctionExpr::MK_IsExplicit:
+  case CXXReflectionMetafunctionExpr::MK_IsNoexcept:
+  case CXXReflectionMetafunctionExpr::MK_IsConstructor:
+  case CXXReflectionMetafunctionExpr::MK_IsDestructor:
+  case CXXReflectionMetafunctionExpr::MK_IsEmpty:
     // Access/member queries return bool
     ResultTy = Context.BoolTy;
     break;
@@ -18713,6 +18743,45 @@ ExprResult Sema::ActOnReflectionMetafunction(SourceLocation KwLoc,
             ResultValue = DC && !isa<TranslationUnitDecl>(DC);
           }
         }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsTemplate:
+      ResultValue = (RE->getReflectionKind() == CXXReflectExpr::RK_Template);
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsExplicit:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *CD = dyn_cast<CXXConstructorDecl>(D))
+            ResultValue = CD->isExplicit();
+          else if (auto *CD = dyn_cast<CXXConversionDecl>(D))
+            ResultValue = CD->isExplicit();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsNoexcept:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand()) {
+          if (auto *FD = dyn_cast<FunctionDecl>(D))
+            ResultValue = FD->getType()->castAs<FunctionProtoType>()->hasNoexceptExceptionSpec();
+        }
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsConstructor:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<CXXConstructorDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsDestructor:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+        if (auto *D = RE->getDeclarationOperand())
+          ResultValue = isa<CXXDestructorDecl>(D);
+      }
+      break;
+    case CXXReflectionMetafunctionExpr::MK_IsEmpty:
+      if (RE->getReflectionKind() == CXXReflectExpr::RK_Type) {
+        if (auto *RD = RE->getTypeOperand()->getType()->getAsCXXRecordDecl())
+          ResultValue = RD->isEmpty();
       }
       break;
     default:

@@ -1225,6 +1225,12 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
   case tok::kw_is_volatile:
   case tok::kw_offset_of:
   case tok::kw_has_parent:
+  case tok::kw_is_template:
+  case tok::kw_is_explicit:
+  case tok::kw_is_noexcept:
+  case tok::kw_is_constructor:
+  case tok::kw_is_destructor:
+  case tok::kw_is_empty:
   case tok::kw_members_of: {
     if (!getLangOpts().Reflection)
       break;

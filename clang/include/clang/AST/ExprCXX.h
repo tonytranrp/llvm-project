@@ -5673,6 +5673,18 @@ public:
     MK_OffsetOf,
     /// has_parent(expr) — returns bool indicating if the reflected entity has a parent
     MK_HasParent,
+    /// is_template(expr) — returns bool indicating if the reflected entity is a template
+    MK_IsTemplate,
+    /// is_explicit(expr) — returns bool indicating if the reflected function is explicit
+    MK_IsExplicit,
+    /// is_noexcept(expr) — returns bool indicating if the reflected function is noexcept
+    MK_IsNoexcept,
+    /// is_constructor(expr) — returns bool indicating if the reflected entity is a constructor
+    MK_IsConstructor,
+    /// is_destructor(expr) — returns bool indicating if the reflected entity is a destructor
+    MK_IsDestructor,
+    /// is_empty(expr) — returns bool indicating if the reflected class is empty
+    MK_IsEmpty,
   };
 
 private:

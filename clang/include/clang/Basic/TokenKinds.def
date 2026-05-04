@@ -479,6 +479,12 @@ REFLECTION_KEYWORD(is_const)
 REFLECTION_KEYWORD(is_volatile)
 REFLECTION_KEYWORD(offset_of)
 REFLECTION_KEYWORD(has_parent)
+REFLECTION_KEYWORD(is_template)
+REFLECTION_KEYWORD(is_explicit)
+REFLECTION_KEYWORD(is_noexcept)
+REFLECTION_KEYWORD(is_constructor)
+REFLECTION_KEYWORD(is_destructor)
+REFLECTION_KEYWORD(is_empty)
 
 // C++20 keywords
 MODULES_KEYWORD(module)

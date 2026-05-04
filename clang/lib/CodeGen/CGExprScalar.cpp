@@ -1330,6 +1330,76 @@ public:
       }
       return Builder.getInt1(false);
     }
+    case CXXReflectionMetafunctionExpr::MK_IsTemplate: {
+      // is_template: check if the reflected entity is a template.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        return Builder.getInt1(
+            Reflect->getReflectionKind() == CXXReflectExpr::RK_Template);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsExplicit: {
+      // is_explicit: check if the reflected function is explicit.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *CD = dyn_cast<CXXConstructorDecl>(D))
+              return Builder.getInt1(CD->isExplicit());
+            else if (auto *CD = dyn_cast<CXXConversionDecl>(D))
+              return Builder.getInt1(CD->isExplicit());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsNoexcept: {
+      // is_noexcept: check if the reflected function is noexcept.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand()) {
+            if (auto *FD = dyn_cast<FunctionDecl>(D))
+              return Builder.getInt1(
+                  FD->getType()->castAs<FunctionProtoType>()->hasNoexceptExceptionSpec());
+          }
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsConstructor: {
+      // is_constructor: check if the reflected entity is a constructor.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand())
+            return Builder.getInt1(isa<CXXConstructorDecl>(D));
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsDestructor: {
+      // is_destructor: check if the reflected entity is a destructor.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Declaration) {
+          if (auto *D = Reflect->getDeclarationOperand())
+            return Builder.getInt1(isa<CXXDestructorDecl>(D));
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
+    case CXXReflectionMetafunctionExpr::MK_IsEmpty: {
+      // is_empty: check if the reflected class is empty.
+      if (auto *Reflect = dyn_cast<CXXReflectExpr>(E->getArgument())) {
+        if (Reflect->getReflectionKind() == CXXReflectExpr::RK_Type) {
+          if (auto *RD = Reflect->getTypeOperand()->getType()->getAsCXXRecordDecl())
+            return Builder.getInt1(RD->isEmpty());
+        }
+        return Builder.getInt1(false);
+      }
+      return Builder.getInt1(false);
+    }
     }
     llvm_unreachable("unexpected metafunction kind");
   }
