@@ -15740,6 +15740,46 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     if (ConvertHalfVec)
       return convertHalfVecBinOp(*this, LHS, RHS, Opc, ResultTy, VK, OK, false,
                                  OpLoc, CurFPFeatureOverrides());
+
+    // C++26 Reflection: Constant-fold equality comparisons of reflection values.
+    // If both operands are CXXReflectExpr (direct reflections), we can compare
+    // them at compile time and produce a CXXBoolLiteralExpr.
+    if (getLangOpts().Reflection &&
+        (Opc == BO_EQ || Opc == BO_NE) &&
+        ResultTy == Context.BoolTy) {
+      auto *LHSReflect = dyn_cast<CXXReflectExpr>(LHS.get()->IgnoreParenImpCasts());
+      auto *RHSReflect = dyn_cast<CXXReflectExpr>(RHS.get()->IgnoreParenImpCasts());
+      if (LHSReflect && RHSReflect) {
+        bool Equal = false;
+        if (LHSReflect->getReflectionKind() == RHSReflect->getReflectionKind()) {
+          switch (LHSReflect->getReflectionKind()) {
+          case CXXReflectExpr::RK_Type:
+            Equal = Context.hasSameType(
+                LHSReflect->getTypeOperand()->getType(),
+                RHSReflect->getTypeOperand()->getType());
+            break;
+          case CXXReflectExpr::RK_Declaration:
+            Equal = (LHSReflect->getDeclarationOperand() ==
+                     RHSReflect->getDeclarationOperand());
+            break;
+          case CXXReflectExpr::RK_Namespace:
+            Equal = (LHSReflect->getNamespaceOperand() ==
+                     RHSReflect->getNamespaceOperand());
+            break;
+          case CXXReflectExpr::RK_GlobalNamespace:
+            Equal = true; // both are the global namespace
+            break;
+          case CXXReflectExpr::RK_Template:
+            Equal = (LHSReflect->getTemplateOperand() ==
+                     RHSReflect->getTemplateOperand());
+            break;
+          }
+        }
+        bool Result = (Opc == BO_EQ) ? Equal : !Equal;
+        return CXXBoolLiteralExpr::Create(Context, Result, ResultTy, OpLoc);
+      }
+    }
+
     return BinaryOperator::Create(Context, LHS.get(), RHS.get(), Opc, ResultTy,
                                   VK, OK, OpLoc, CurFPFeatureOverrides());
   }
